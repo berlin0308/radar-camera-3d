@@ -1,0 +1,7 @@
+# raw captures (44 GB+) never go in git; share them by SSD / drive
+data/
+photos/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

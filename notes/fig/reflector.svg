@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="660" viewBox="0 0 680 330" font-family="PingFang TC, Helvetica, sans-serif">
+<rect width="680" height="330" fill="#ffffff"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#D85A30" stroke-width="1.5"/></marker></defs>
+<text x="150" y="36" font-size="15" font-weight="600" text-anchor="middle" fill="#222">長這樣：三片金屬板拼成內角</text>
+<polygon points="150,190 150,70 60,240" fill="#B4B2A9" stroke="#444"/>
+<polygon points="150,190 150,70 240,240" fill="#D3D1C7" stroke="#444"/>
+<polygon points="150,190 60,240 240,240" fill="#888780" stroke="#444"/>
+<text x="150" y="270" font-size="12" text-anchor="middle" fill="#444">像紙箱「裡面」的一個角</text>
+<text x="150" y="290" font-size="12" text-anchor="middle" fill="#444">大小約 10–30 cm，金屬或包鋁箔</text>
+<text x="490" y="36" font-size="15" font-weight="600" text-anchor="middle" fill="#222">從上面看：電波原路彈回</text>
+<path d="M 400 70 L 580 70 L 580 250" fill="none" stroke="#444" stroke-width="3"/>
+<rect x="360" y="262" width="70" height="30" rx="4" fill="#D3D1C7" stroke="#5F5E5A"/><text x="395" y="282" font-size="14" text-anchor="middle" fill="#222">radar</text>
+<line x1="410" y1="258" x2="545" y2="74" stroke="#D85A30" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="548" y1="72" x2="576" y2="110" stroke="#D85A30" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="576" y1="114" x2="398" y2="258" stroke="#D85A30" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="596" y="160" font-size="12" fill="#444">彈兩次</text><text x="596" y="178" font-size="12" fill="#444">回到原方向</text>
+<text x="490" y="315" font-size="12" text-anchor="middle" fill="#444">不管從哪個角度打進來，都會回到 radar</text>
+</svg>

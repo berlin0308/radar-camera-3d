@@ -1,0 +1,34 @@
+trace,shot,config,distance_m,azimuth_deg,height_m,time,photo_id,validated,notes
+00_dryrun,0 dry run,radarhd-o-polin,,,,,,,1 min any scene
+01_range_03m,1 range,radarhd-o-polin,3,0,,,,,reflector on line; rig static; 30 s
+01_range_06m,1 range,radarhd-o-polin,6,0,,,,,30 s
+01_range_10m,1 range,radarhd-o-polin,10,0,,,,,30 s
+01_range_15m,1 range,radarhd-o-polin,15,0,,,,,30 s
+02_angle_m40,2 angle,radarhd-o-polin,5,-40,,,,,
+02_angle_m20,2 angle,radarhd-o-polin,5,-20,,,,,
+02_angle_p00,2 angle,radarhd-o-polin,5,0,,,,,
+02_angle_p20,2 angle,radarhd-o-polin,5,20,,,,,
+02_angle_p40,2 angle,radarhd-o-polin,5,40,,,,,
+03_calib_01,3 calib,radarhd-o-polin,,,,,,,8+ positions spread in range/az/height; camera must see it; 10 s each
+03_calib_02,3 calib,radarhd-o-polin,,,,,,,
+03_calib_03,3 calib,radarhd-o-polin,,,,,,,
+03_calib_04,3 calib,radarhd-o-polin,,,,,,,
+03_calib_05,3 calib,radarhd-o-polin,,,,,,,
+03_calib_06,3 calib,radarhd-o-polin,,,,,,,
+03_calib_07,3 calib,radarhd-o-polin,,,,,,,
+03_calib_08,3 calib,radarhd-o-polin,,,,,,,
+04_scene_day,4 static scene,radarhd-o-polin,,,,,,,corners/edges; 60 s
+05_handheld,5 handheld (optional),radarhd-o-polin,,,,,,,slower than v_max 1.79 m/s; level; 2 min
+06_sky,6 sky noise (optional),radarhd-o-polin,,,,,,,open sky 60 s
+07_radome_dry,7 radome (ask first),radarhd-o-polin,,,,,,,film over radome
+07_radome_wet,7 radome (ask first),radarhd-o-polin,,,,,,,
+07_radome_mud,7 radome (ask first),radarhd-o-polin,,,,,,,
+x9_elev_040,X9 elevation (candidate),radarhd-o-polin,5,0,0.4,,,,30 s
+x9_elev_120,X9 elevation (candidate),radarhd-o-polin,5,0,1.2,,,,30 s
+x9_elev_200,X9 elevation (candidate),radarhd-o-polin,5,0,2.0,,,,30 s
+walk_360,360 walk-around (candidate),radarhd-o-polin,,,,,,,circle one object; camera on it; slow; ~2 min
+x4_wall_empty,X4 multipath (candidate),radarhd-o-polin,,,,,,,rig parallel to side wall 1.5 m; no reflector; 30 s
+x4_wall_refl,X4 multipath (candidate),radarhd-o-polin,5,,,,,,reflector at (0.5 5) m; 30 s
+x4_wall_3m,X4 multipath (candidate),radarhd-o-polin,5,,,,,,rig moved to 3 m from wall; 30 s
+x6_walk_cross,X6 Doppler (candidate),radarhd-o-polin,,,,,,,person crosses at 3-6 m; 30 s
+x6_walk_toward,X6 Doppler (candidate),radarhd-o-polin,,,,,,,person walks toward rig; 30 s
