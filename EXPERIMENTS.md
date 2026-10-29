@@ -28,7 +28,7 @@ Legend: ✅ done · 🟡 preliminary · ⬜ planned · 💡 candidate extension
 |---|---|---|---|---|
 | 2026-10-19 | Rig day 1 | 2 | none (0 bytes) | indoor desk, 25-min campus walk |
 | 2026-10-21 | Rig day 2 | 23 | OS-0-64 from 15:04 | range, angle, calibration, room scene; 44 GB with day 1 |
-| 2026-10-29 | Session 2 | in progress | OS-0-128 | campus orbits and scenes with people and cars |
+| 2026-10-29 | Session 2 | 5 | OS-0-128 | campus walk, parking lot, crosswalk, Walking to the Sky, Scotty, plaza; 61 GB ([log](notes/sessions/2026-10-29.md)) |
 | TBD | Session 3 | — | OS-0-128 | off campus; rain or fog if the weather allows |
 
 ## B-roll for the final video (all experiments)

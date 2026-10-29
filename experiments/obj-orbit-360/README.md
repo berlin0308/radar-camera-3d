@@ -1,6 +1,6 @@
 # 360° orbits: how object size and material change what the radar sees
 
-**Status:** Planned (Session 2)
+**Status:** Data partly recorded (2026-10-29); analysis pending
 
 ## Question
 For a car, a small metal object, a tree or sculpture and a building wall: how much of each object does the radar capture, compared with the 128-beam LiDAR?
@@ -9,7 +9,7 @@ For a car, a small metal object, a tree or sculpture and a building wall: how mu
 Orbit each object once (radius 2 to 5 m, 0.5 to 1 m/s, start and stop at a marked spot), camera pointed at the object. Poses from LiDAR SLAM; radar points accumulated in the object frame.
 
 ## Data
-Planned traces: `orbit_car`, `orbit_small_metal`, `orbit_tree`, `wall_ghc`, `spin_in_place` (Session 2).
+Recorded 2026-10-29 (see [session log](../../notes/sessions/2026-10-29.md)): car = `2026-10-29.15-49-40` 11-17 min; sculpture (thin metal pole) = `2026-10-29.16-12-38` 5:30-9:40; small metal (Scotty) = `2026-10-29.16-22-36` 2:59-3:45. Still to record: tree, GHC wall, spin in place.
 
 ## Results
 | Object | Size | Material | Radar points per frame on object | Extent error vs LiDAR | Mean echo (dB) | Visible from all sides? |
