@@ -4,6 +4,8 @@ Classical FMCW radar (TI AWR1843 + DCA1000 on the WiSE Lab red-rover rig) plus a
 turned into a 3D camera: raw ADC → range / Doppler / angle → 3D points → camera-guided dense depth,
 evaluated against LiDAR.
 
+**[Experiment reports →](EXPERIMENTS.md)** every experiment with its numbers, figures and what is still pending.
+
 Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowledged in the report).
 
 ## Layout
@@ -15,7 +17,7 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/` | main pipeline (Po-Lin) |
 | `src/ext/<X-id>/` | extensions (see CONTRIBUTING.md) |
-| `experiments/<X-id>/` | results of each extension: figures + README |
+| `EXPERIMENTS.md`, `experiments/<id>/` | index of all experiments; one report per experiment (template: `experiments/_TEMPLATE.md`) |
 | `data/raw/<trace>/` | captures, **not in git** |
 
 ## Setup

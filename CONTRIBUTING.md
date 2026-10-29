@@ -5,7 +5,7 @@ Thank you for helping. The main pipeline is Po-Lin's course work, so the rules k
 ## Workflow
 1. `git checkout main && git pull`, then one branch per topic: `yining/<X-id>-<short-name>`
    (e.g. `yining/x5-accumulation`, `yining/360-recon`).
-2. Code goes in `src/ext/<X-id>/`; results go in `experiments/<X-id>/` with a `README.md`
+2. Code goes in `src/ext/<X-id>/`; results go in `experiments/<X-id>/README.md` (copy `experiments/_TEMPLATE.md`, add a row to `EXPERIMENTS.md`)
    (question, method, data used, numbers, figures, one-line conclusion).
 3. Import the main pipeline from `src/`, do not edit it. If something there needs to change,
    say so in the PR description and Po-Lin decides.
