@@ -10,7 +10,7 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | Path | What |
 |---|---|
 | `shoot.sh`, `sync.sh`, `validate.sh`, `check_valid.py` | rig-day recording and data checks |
-| `RIGDAY.md`, `AGENDA_*.md` | rig-day procedures |
+| `AGENDA_session2.md` | rig-day procedure and shot list for the next sessions |
 | `notes/shots.csv` | which trace is which shot |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/` | main pipeline (Po-Lin) |

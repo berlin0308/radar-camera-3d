@@ -1,26 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="1080" viewBox="0 0 680 540" font-family="PingFang TC, Helvetica, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="1080" viewBox="0 0 680 540" font-family="Helvetica, sans-serif">
 <rect width="680" height="540" fill="#ffffff"/>
-<text x="60" y="40" font-size="15" font-weight="600" fill="#222">1 距離 · 放正前方</text>
-<text x="60" y="60" font-size="12" fill="#666">每個位置錄 30 秒</text>
+<text x="60" y="40" font-size="15" font-weight="600" fill="#222">1 Range · straight ahead</text>
+<text x="60" y="60" font-size="12" fill="#666">30 s per position</text>
 <line x1="180" y1="384" x2="180" y2="96" stroke="#999" stroke-dasharray="4 4"/>
 <g fill="#EF9F27" stroke="#854F0B" stroke-width="0.8">
 <polygon points="180,92 172,106 188,106"/><polygon points="180,192 172,206 188,206"/><polygon points="180,272 172,286 188,286"/><polygon points="180,332 172,346 188,346"/></g>
 <g font-size="13" fill="#333"><text x="198" y="103">15 m</text><text x="198" y="203">10 m</text><text x="198" y="283">6 m</text><text x="198" y="343">3 m</text></g>
 <rect x="150" y="388" width="60" height="30" rx="4" fill="#D3D1C7" stroke="#5F5E5A"/><text x="180" y="408" font-size="14" text-anchor="middle" fill="#222">rig</text>
-<text x="380" y="40" font-size="15" font-weight="600" fill="#222">2 角度 · 都在 5 m</text>
-<text x="380" y="60" font-size="12" fill="#666">正 = rig 的左邊 · 各 30 秒</text>
+<text x="380" y="40" font-size="15" font-weight="600" fill="#222">2 Angle · all at 5 m</text>
+<text x="380" y="60" font-size="12" fill="#666">+ = left of the rig · 30 s each</text>
 <path d="M 377.8 254.5 A 190 190 0 0 1 622.2 254.5" fill="none" stroke="#999" stroke-dasharray="4 4"/>
 <line x1="500" y1="384" x2="500" y2="222" stroke="#999" stroke-dasharray="4 4"/>
 <g fill="#EF9F27" stroke="#854F0B" stroke-width="0.8">
 <polygon points="377.8,247 369.8,261 385.8,261"/><polygon points="435,214 427,228 443,228"/><polygon points="500,203 492,217 508,217"/><polygon points="565,214 557,228 573,228"/><polygon points="622.2,247 614.2,261 630.2,261"/></g>
-<g font-size="13" fill="#333" text-anchor="middle"><text x="377.8" y="238">左40°</text><text x="435" y="205">左20°</text><text x="500" y="194">0°</text><text x="565" y="205">右20°</text><text x="622.2" y="238">右40°</text></g>
+<g font-size="13" fill="#333" text-anchor="middle"><text x="377.8" y="238">L 40°</text><text x="435" y="205">L 20°</text><text x="500" y="194">0°</text><text x="565" y="205">R 20°</text><text x="622.2" y="238">R 40°</text></g>
 <text x="512" y="320" font-size="13" fill="#333">5 m</text>
 <rect x="470" y="388" width="60" height="30" rx="4" fill="#D3D1C7" stroke="#5F5E5A"/><text x="500" y="408" font-size="14" text-anchor="middle" fill="#222">rig</text>
 <rect x="40" y="446" width="290" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/>
-<text x="185" y="469" font-size="14" font-weight="600" text-anchor="middle" fill="#085041">3 校正 · 隨便擺 8 個位置</text>
-<text x="185" y="490" font-size="12" text-anchor="middle" fill="#0F6E56">camera 要拍得到 · 各 10 秒</text>
+<text x="185" y="469" font-size="14" font-weight="600" text-anchor="middle" fill="#085041">3 Calibration · 8 spread-out spots</text>
+<text x="185" y="490" font-size="12" text-anchor="middle" fill="#0F6E56">visible to the camera · 10 s each</text>
 <rect x="350" y="446" width="290" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56"/>
-<text x="495" y="469" font-size="14" font-weight="600" text-anchor="middle" fill="#085041">4 場景 · 拿走 reflector</text>
-<text x="495" y="490" font-size="12" text-anchor="middle" fill="#0F6E56">rig 不動，對著一般場景 60 秒</text>
+<text x="495" y="469" font-size="14" font-weight="600" text-anchor="middle" fill="#085041">4 Scene · reflector removed</text>
+<text x="495" y="490" font-size="12" text-anchor="middle" fill="#0F6E56">rig static, ordinary scene, 60 s</text>
 <polygon points="60,522 54,532 66,532" fill="#EF9F27" stroke="#854F0B" stroke-width="0.8"/><text x="74" y="531" font-size="12" fill="#333">= reflector</text>
 </svg>

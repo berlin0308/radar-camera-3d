@@ -1,44 +1,57 @@
-# Session 2 agenda · 校園（capstone 為主）
+# Session 2 agenda · campus (capstone data first)
 
-約 3 小時。CP 的 M1 已經在 10/21 做完，這次不補拍；時間全部給 capstone 的「有人、有車」資料。
-每一段都要有人或車入鏡，capstone 拿來測 detection。
+About 3 hours. The CP range/angle tests (M1) were done on 2026-10-21 and are not repeated.
+Every segment should have people or cars in view; the capstone uses them to test detection.
 
-## 出門前
-- [ ] 電池充飽、背包（Tianshu 說充電器可能在 Deva 的 lab，先確認）
-- [ ] 問 Tianshu：要不要先換 128 線 LiDAR（他希望換；capstone 跟 GRT 的設定一致）
-- [ ] iPhone 充飽（要當 Mac 的網路）、USB 傳輸線
-- [ ] 想好路線：GHC 一圈的起點、原地自轉的空地、2–3 個有人有車的地點
+## Before leaving
+- [ ] Battery charged, backpack (Tianshu's charger may still be in Deva's lab)
+- [ ] LiDAR: the rig now carries the OS-0-128 (swapped 2026-10-29); the NUC config already has
+      `beams: 128` and `addr: 169.254.149.190`
+- [ ] iPhone charged (it is the Mac's internet) and a USB cable
+- [ ] Route: which objects to orbit, an open spot for the spin, 2-3 places with people and cars
 
-## +0:00 開機（20 min）
-1. Mac：iPhone 熱點用線接 Mac → 網路服務順序 iPhone USB 在 Wi‑Fi 上面 → Wi‑Fi 連 red-rover
-2. Claude 開 ssh 共用連線（你打一次 rover 密碼）
-3. NUC 上：`cd ~/red-rover/collect && export ROVER_CFG=config/radarhd-o-polin.yaml && sudo -E make config && make`
-   - 換了 128 線：先把 config 的 `beams: 64` 改成 `beams: 128`
-4. 錄製網頁出現 lidar Initialized 後**再等 20 秒**，錄 30 s dry run，Claude 檢查四個 sensor 都有資料
+## +0:00 Start-up (20 min)
+1. Mac: iPhone hotspot over USB; network service order with iPhone USB above Wi-Fi; Wi-Fi on `red-rover`
+2. Open the shared ssh connection (type the rover password once)
+3. NUC: `cd ~/red-rover/collect && export ROVER_CFG=config/radarhd-o-polin.yaml && sudo -E make config && make`
+4. When the web page shows `lidar Initialized`, wait another 30 s, then record a 30 s dry run and
+   check that all four sensors wrote data (LiDAR shape `[128, 2048]`)
 
-## +0:20 拍攝（每段 ≤ 5 分鐘，約 1 GB/分）
-| 順序 | 拍什麼 | 怎麼拍 | 段數 |
+## +0:20 Shooting (each segment <= 5 min, about 1 GB/min)
+| # | What | How | Segments |
 |---|---|---|---|
-| 1 | GHC 繞一圈 360° | 手持，camera 朝建築，慢慢走（< 1.79 m/s，正常散步） | 3–4 段 |
-| 2 | 原地自轉 360° | 空地中間站定，約 1 分鐘轉一圈 | 2–3 段 |
-| 3 | 校園有人有車 | 路口、停車場出入口、人多的走道；rig 固定或手持都可以 | 4–6 段，各 2–3 分 |
-| 4 | 有時間：X4 鬼點 | rig 平行側牆離 1.5 m（見 deck 的 x4） | 3 段 |
-| 5 | 有時間：天空（X10） | rig 朝空曠天空斜約 45°，60 s，前方沒有任何東西 | 1 段 |
+| 1 | 360° orbit of a parked car | radius 4-5 m, camera on the car, 0.5-1 m/s, start and stop at a marked spot | 1-2 |
+| 2 | 360° orbit of a small metal object (trash can, hydrant, bike rack) | radius 2-3 m | 1 |
+| 3 | 360° orbit of a tree or sculpture (non-metal) | radius 3-5 m | 1 |
+| 4 | One stretch of a GHC wall or corner | walk along at 5-10 m | 1 |
+| 5 | Spin in place | stand still in an open spot, one turn per ~1 min | 2-3 |
+| 6 | Campus scenes with people and cars | crossings, parking-lot entrances, busy walkways; rig static or handheld | 4-6 × 2-3 min |
+| 7 | If time: X4 multipath | rig parallel to a side wall at 1.5 m | 3 × 30 s |
+| 8 | If time: open sky (X10) | rig tilted ~45° at empty sky, 60 s | 1 |
 
-- 走路的段落用**手機開錄製網頁**（http://192.168.8.249:5000）按 START/STOP；rig 固定的段落可以讓 Claude 用 `./shoot.sh <名稱> <秒數>` 錄
-- 每段結束記一行：時間 + 拍什麼（Claude 用 shoot.sh 時會自動記進 notes/shots.csv）
+- Walking segments: START/STOP from the phone at `http://192.168.8.249:5000`, save location = the SSD
+- Static segments: `./shoot.sh <label> <seconds>` (logs to `notes/shots.csv`)
+- After each walking segment, note the time and what was shot
 
-## 收工（20 min）
-- Claude 關 NUC（你打一次 rover 密碼）→ 白燈熄 → 拔 SSD、拔電、關電池、蓋 radar 保護蓋
-- SSD 插 Mac → macOS 跳「not readable」按 **Ignore**（不要按 Initialize）→ Claude 用 anylinuxfs 唯讀掛載、只拷 `2026-*` 資料夾、跑 validate
+Why orbits of different objects instead of the whole building: the radar reaches ~20 m and large flat
+walls act as mirrors, so a whole-building loop shows scattered corners; objects of different size and
+material (car, small metal, tree, wall) give a clean comparison against the 128-beam LiDAR.
 
-## 要知道的
-- 車速超過 ±1.79 m/s（約 4 mph）速度會繞回變錯，距離和角度還是對的；capstone 要正確車速就要換 chirp，問 Tianshu
-- camera 會拍到路人臉和車牌；要公開前用 red-rover 的 `anonymize` 處理
+## Shut-down (20 min)
+- Stop any recording, then `sync && sudo shutdown now` on the NUC; wait for the white light to go off
+- Unplug the SSD, power, battery; put the radar cover back
+- On the Mac the SSD shows "not readable": press **Ignore** (never Initialize); mount read-only with
+  `sudo anylinuxfs mount /dev/diskNs1 -o ro`, copy only the `2026-*` folders, run `./validate.sh`
+
+## Good to know
+- Speeds beyond ±1.79 m/s (about 4 mph) wrap around in Doppler; range and angle stay correct
+- Camera frames show faces and plates: anonymize (red-rover `anonymize`) before publishing
 
 ---
 
-# Session 3 · 離學校遠一點（約 3 小時）
-- 跟 GRT 訓練資料不同的地方（Oakland 商業街、Squirrel Hill、Schenley Park、市區），有人有車的路口與人行道，避免 capstone overfit 學校附近
-- 剛好下雨或起霧就拍 rain / fog（capstone validation）；mud 和水用塑膠膜貼在 radome 前，不直接弄濕借來的 radome，先問 Tianshu
-- 開機、收工流程同 Session 2
+# Session 3 · off campus (about 3 h)
+- Places unlike the GRT training data (Oakland streets, Squirrel Hill, Schenley Park, downtown),
+  crossings and sidewalks with people and cars, so the capstone can be tested for overfitting
+- If it rains or is foggy that day, record rain / fog for capstone validation; mud and water only on a
+  plastic film in front of the radome (ask Tianshu first)
+- Start-up and shut-down as in Session 2
