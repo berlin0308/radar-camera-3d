@@ -15,14 +15,23 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `AGENDA_session2.md` | rig-day procedure and shot list for the next sessions |
 | `notes/shots.csv` | which trace is which shot |
 | `notes/fig/` | figures used in the Notebook deck |
-| `src/` | main pipeline (Po-Lin) |
+| `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
+| `tests/` | each stage against `xwr.rsp` on the same frame (`python -m pytest tests/ -q`) |
 | `src/ext/<X-id>/` | extensions (see CONTRIBUTING.md) |
+| `figures/` | report figures, named by trace and frame |
 | `EXPERIMENTS.md`, `experiments/<id>/` | index of all experiments; one report per experiment (template: `experiments/_TEMPLATE.md`) |
 | `data/raw/<trace>/` | captures, **not in git** |
 
 ## Setup
 ```bash
 uv venv -p 3.12 && source .venv/bin/activate
-uv pip install "roverd[video] @ git+https://github.com/RadarML/red-rover.git#subdirectory=format" xwr tqdm
+uv pip install "roverd[video] @ git+https://github.com/RadarML/red-rover.git#subdirectory=format" xwr tqdm matplotlib scipy pyyaml pytest
 ```
-Put the captures under `data/raw/` with their original trace names (e.g. `data/raw/2026-10-21.15-58-19/`).
+Without `uv` (e.g. on nunga, where the system Python is PEP 668 managed): `python3 -m venv .venv && .venv/bin/pip install ...` with the same packages.
+
+Put the captures under `data/raw/` with their original trace names (e.g. `data/raw/2026-10-21.15-58-19/`); symlinks are fine (on nunga they point into `/data/christineh/DATASET/radarhd/`).
+
+```bash
+python -m pytest tests/ -q                                                   # stages vs xwr.rsp
+python -m src.radar data/raw/2026-10-29.15-49-40 --time 720 --accumulate 20  # point cloud of one second
+```
