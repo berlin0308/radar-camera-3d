@@ -16,6 +16,8 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `notes/shots.csv` | which trace is which shot |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
+| `src/calib/` | radar→LiDAR extrinsics from the 10/21 board shots (`python -m src.calib.radar_lidar`), `RadarToLidar` to apply them, `overlay` to check on any trace |
+| `calib/` | `extrinsics_radar_lidar.json`: yaw, t, shots used, residuals |
 | `tests/` | each stage against `xwr.rsp` on the same frame (`python -m pytest tests/ -q`) |
 | `src/ext/<X-id>/` | extensions (see CONTRIBUTING.md) |
 | `figures/` | report figures, named by trace and frame |

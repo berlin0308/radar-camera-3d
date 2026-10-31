@@ -150,11 +150,21 @@ The radar counterpart of the camera noise calibration. A camera counts photons, 
 
 ---
 
-## 6. Radar-to-camera extrinsics
+## 6. Extrinsics: radar to LiDAR, radar to camera
 
-*[m4-extrinsics](experiments/m4-extrinsics/README.md) · preview (10/21); calibration pending*
+*[m4-extrinsics](experiments/m4-extrinsics/README.md) · radar→LiDAR solved in 2D (11/1, preliminary); radar→camera pending*
 
-Eight board placements over 0.5–4 m, ±25° azimuth, −21° to +9° elevation. Projected into the fisheye image with the red-rover intrinsics and no extrinsics at all, every radar detection already lands on or at the edge of the board, so the true offset is small. Remaining: mark the board centre in each image, solve the 6-DoF transform (PnP + RANSAC), report reprojection error, with care at placement 06 (0.48 m) where centimetres matter. The same placements with their LiDAR data give the radar-to-LiDAR transform that sections 2 and 8 wait for.
+Eight board placements over 0.5–4 m, ±25° azimuth. The radar sees the board as its strongest CFAR return (range minus the 0.183 m offset); in the LiDAR scan the board is the largest upright cluster near where a prior (LiDAR −x forward) predicts it, re-picked within 0.5 m after a first solve, because a global search in a 12 ft room kept picking furniture at the same range. A 2D rigid fit by Kabsch over seven placements (calib_06 at 0.25 m sits inside the radar leakage zone) gives yaw +101.9° and t = (−0.11, +0.16) m with a mean residual of 8.5 cm, max 16 cm; the residual is the radar's azimuth error on a flat board, not range. Pitch, roll and tz are not estimated, since radar elevation is unusable. On data not used in the fit the transform holds: 11 cm median distance to the nearest LiDAR return in the 10/21 room scene, 22 cm on the Scotty segment of 10/29 after the LiDAR swap, so the OS-0-128 sits where the OS-0-64 did to within a few centimetres.
+
+![Before and after the transform](figures/calib_radar_lidar_solve.png)
+
+*Board positions from radar and LiDAR before and after the transform, and the residual per shot.*
+
+![Check on 10/29](figures/calib_overlay_scotty.png)
+
+*Radar points transformed into the LiDAR frame on the Scotty segment: they follow the curved wall.*
+
+Radar to camera is the remaining half: projected with the red-rover intrinsics and no extrinsics, every detection already lands on or at the edge of the board, so the offset is small; the board centre must be marked in the eight images, then PnP + RANSAC and a reprojection error.
 
 ![Projection preview](notes/fig/rd2/f10_calib_projection.png)
 

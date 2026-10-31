@@ -58,7 +58,13 @@ What you need to know about these points:
 ## What is missing (and you may need to make)
 
 - **Poses.** No pose per frame yet. LiDAR SLAM on the 128-beam scans is the obvious route; the IMU `rot` is a check.
-- **Radar ↔ LiDAR extrinsics.** Not calibrated. The sensors are rigid on one rig, so one fixed rotation + translation. A rough one from matching radar arcs to LiDAR walls is fine to start; a proper one comes from the 10/21 calibration shots (M4).
+- **Radar ↔ LiDAR extrinsics.** Done in 2D (yaw + xy, ~8 cm residual), see `experiments/m4-extrinsics/`. Use it:
+  ```python
+  from src.calib.transform import RadarToLidar
+  T = RadarToLidar.load()
+  xyz_lidar = T(to_xyz(pts))          # radar points -> LiDAR frame; z is passed through, not calibrated
+  ```
+  Check it on any trace: `python -m src.calib.overlay data/raw/<trace> --time <s> --accumulate 10 --out x.png`.
 - **Radar ↔ camera extrinsics.** Same, pending. Camera intrinsics are in the red-rover repo.
 
 ## Rules (short)

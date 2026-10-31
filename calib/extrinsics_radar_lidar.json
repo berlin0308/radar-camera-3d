@@ -1,0 +1,30 @@
+{
+ "frame_from": "radar (x right, y forward, z up)",
+ "frame_to": "lidar (sensor frame)",
+ "yaw_deg": 101.91420007081096,
+ "t_xy_m": [
+  -0.11427900639833588,
+  0.15695411496908657
+ ],
+ "t_z_m": null,
+ "range_offset_m": 0.183,
+ "shots": [
+  "calib_01",
+  "calib_02",
+  "calib_03b",
+  "calib_04",
+  "calib_05b",
+  "calib_07",
+  "calib_08"
+ ],
+ "residual_cm": [
+  16.106311869990613,
+  6.297150418718313,
+  10.973828984026001,
+  2.961470427129703,
+  11.224723073238657,
+  0.9819333206900686,
+  11.240933655477994
+ ],
+ "note": "2D solve; pitch/roll/z not estimated (radar elevation too noisy)"
+}
