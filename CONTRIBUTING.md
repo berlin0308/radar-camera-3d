@@ -65,7 +65,7 @@ What you need to know about these points:
   xyz_lidar = T(to_xyz(pts))          # radar points -> LiDAR frame; z is passed through, not calibrated
   ```
   Check it on any trace: `python -m src.calib.overlay data/raw/<trace> --time <s> --accumulate 10 --out x.png`.
-- **Radar ↔ camera extrinsics.** Same, pending. Camera intrinsics are in the red-rover repo.
+- **Radar ↔ camera extrinsics.** Done by PnP, 35 px reprojection error (radar bearing limited). `C = RadarToCamera.load(); uv = C.pixels(xyz_radar)` gives pixels in the 1920×1080 frame. Intrinsics: `calib/camera_fisheye_iq1m.json` (OpenCV fisheye, from red-rover).
 
 ## Rules (short)
 

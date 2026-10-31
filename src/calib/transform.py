@@ -32,3 +32,31 @@ class RadarToLidar:
 
     def inverse(self, xyz):
         return (np.asarray(xyz) - self.t) @ self.R
+
+
+DEFAULT_CAM = os.path.join(os.path.dirname(__file__), "..", "..", "calib", "extrinsics_radar_camera.json")
+
+
+class RadarToCamera:
+    """Radar frame -> camera frame (x right, y down, z forward) and on to fisheye pixels.
+
+        C = RadarToCamera.load()
+        xyz_c = C(xyz_r)                 # camera-frame metres
+        uv = C.pixels(xyz_r)             # (N, 2) pixels in the 1920x1080 frame
+    """
+
+    def __init__(self, R, t, cam):
+        self.R, self.t, self.cam = np.asarray(R, float), np.asarray(t, float), cam
+
+    @classmethod
+    def load(cls, path=DEFAULT_CAM):
+        j = json.load(open(path))
+        cam = json.load(open(os.path.join(os.path.dirname(path), os.path.basename(j["intrinsics"]))))
+        return cls(j["R"], j["t_m"], cam)
+
+    def __call__(self, xyz):
+        return np.asarray(xyz) @ self.R.T + self.t
+
+    def pixels(self, xyz):
+        from .board_image import project_fisheye
+        return project_fisheye(self(xyz), self.cam)

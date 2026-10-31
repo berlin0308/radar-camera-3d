@@ -152,7 +152,7 @@ The radar counterpart of the camera noise calibration. A camera counts photons, 
 
 ## 6. Extrinsics: radar to LiDAR, radar to camera
 
-*[m4-extrinsics](experiments/m4-extrinsics/README.md) · radar→LiDAR solved in 2D (11/1, preliminary); radar→camera pending*
+*[m4-extrinsics](experiments/m4-extrinsics/README.md) · radar→LiDAR solved in 2D, radar→camera by PnP (11/1, both preliminary)*
 
 Eight board placements over 0.5–4 m, ±25° azimuth. The radar sees the board as its strongest CFAR return (range minus the 0.183 m offset); in the LiDAR scan the board is the largest upright cluster near where a prior (LiDAR −x forward) predicts it, re-picked within 0.5 m after a first solve, because a global search in a 12 ft room kept picking furniture at the same range. A 2D rigid fit by Kabsch over seven placements (calib_06 at 0.25 m sits inside the radar leakage zone) gives yaw +101.9° and t = (−0.11, +0.16) m with a mean residual of 8.5 cm, max 16 cm; the residual is the radar's azimuth error on a flat board, not range. Pitch, roll and tz are not estimated, since radar elevation is unusable. On data not used in the fit the transform holds: 11 cm median distance to the nearest LiDAR return in the 10/21 room scene, 22 cm on the Scotty segment of 10/29 after the LiDAR swap, so the OS-0-128 sits where the OS-0-64 did to within a few centimetres.
 
@@ -164,11 +164,11 @@ Eight board placements over 0.5–4 m, ±25° azimuth. The radar sees the board 
 
 *Radar points transformed into the LiDAR frame on the Scotty segment: they follow the curved wall.*
 
-Radar to camera is the remaining half: projected with the red-rover intrinsics and no extrinsics, every detection already lands on or at the edge of the board, so the offset is small; the board centre must be marked in the eight images, then PnP + RANSAC and a reprojection error.
+Radar to camera uses the same seven placements: the board centre in each camera frame (a grey, smooth, square blob; five of them grown from a hand seed), the radar's x, y with the LiDAR board height as the 3D point, the red-rover OPENCV_FISHEYE intrinsics, and `cv2.solvePnP` from the co-located guess. The reprojection error falls from 143 px to 35 px, which at 3 m is 2°, the radar's own bearing error on a flat board; the rotation (−7°, −3°, +8° Rodrigues in camera axes) is usable, the translation (+0.06, −0.48, +0.64 m) is weakly constrained by seven noisy bearings and should not be read as the physical offset. A LiDAR-to-camera PnP on the same pixels reaches 29 px, so the blob centroids of a flat board are the next limit, and composing radar→LiDAR→camera agrees with the direct solve to 2.2° in rotation. A corner reflector, one physical apex for all three sensors, would fix both; the principled version is one joint least-squares solve in the LiDAR frame with each measurement weighted by its own noise.
 
-![Projection preview](notes/fig/rd2/f10_calib_projection.png)
+![Radar detections before and after PnP](figures/calib_radar_camera.png)
 
-*Eight placements with radar detections projected under the co-located guess.*
+*Radar detections projected into the camera before (blue x) and after (green o) PnP, crops around the board.*
 
 ---
 

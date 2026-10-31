@@ -1,12 +1,12 @@
 # M4: radar to LiDAR and radar to camera extrinsics
 
-**Status:** Radar→LiDAR solved in 2D (2026-11-01, preliminary); radar→camera pending
+**Status:** Radar→LiDAR solved in 2D and radar→camera solved by PnP (2026-11-01, both preliminary)
 
 ## Question
 Where is the radar relative to the LiDAR and the camera, and how far do transformed radar points land from the target?
 
 ## Method
-8 calibration placements of the board, 10 s each, rig static. Radar→LiDAR (`src/calib/radar_lidar.py`): radar board = median of the strongest CFAR point over 40 frames, range minus the 0.183 m offset; LiDAR board = largest upright cluster (floor removed, ≥ 25 cm tall) within 1 m of where a prior (LiDAR −x forward) predicts it, re-picked within 0.5 m after a first solve; 2D rigid fit (yaw, tx, ty) by Kabsch. Pitch, roll and tz are not estimated because radar elevation is unusable. Radar→camera (pending): mark the board centre in each image, PnP + RANSAC with the red-rover fisheye intrinsics, reprojection error.
+8 calibration placements of the board, 10 s each, rig static. Radar→LiDAR (`src/calib/radar_lidar.py`): radar board = median of the strongest CFAR point over 40 frames, range minus the 0.183 m offset; LiDAR board = largest upright cluster (floor removed, ≥ 25 cm tall) within 1 m of where a prior (LiDAR −x forward) predicts it, re-picked within 0.5 m after a first solve; 2D rigid fit (yaw, tx, ty) by Kabsch. Pitch, roll and tz are not estimated because radar elevation is unusable. Radar→camera (`src/calib/board_image.py`, `radar_camera.py`): board centre in each camera frame found as a grey, smooth, square blob (three shots automatically, five grown from a hand seed inside a range-sized window); 3D board point = radar x, y plus the LiDAR board height (a constant z offset is absorbed by the translation); pixels undistorted with the red-rover OPENCV_FISHEYE intrinsics (`calib/camera_fisheye_iq1m.json`), `cv2.solvePnP` from the co-located guess; reprojection error with the fisheye model.
 
 ## Data
 `calib_01`, `calib_02`, `calib_03b`, `calib_04`, `calib_05b`, `calib_06`, `calib_07`, `calib_08` (2026-10-21). Checks: `scene_room` (10/21), `2026-10-29.16-22-36` t = 200 s, `2026-10-29.15-49-40` t = 720 s.
@@ -35,23 +35,33 @@ Check on traces not used in the fit (nearest above-ground LiDAR point to each tr
 
 *Check on the Scotty segment of 10/29: radar points on the LiDAR walls. `python -m src.calib.overlay data/raw/2026-10-29.16-22-36 --time 200 --accumulate 10`.*
 
-### Radar → camera (pending)
-| Placement | Range | Azimuth (+ left) | Elevation | Image error after calibration |
+### Radar → camera
+| Placement | Range (offset removed) | Azimuth (+ left) | Reprojection error, co-located guess | After PnP |
 |---|---|---|---|---|
-| 01 | 3.20 m | −8° | −5° | TBD px |
-| 02 | 2.40 m | +25° | −12° | TBD px |
-| 03b | 1.64 m | +1° | −14° | TBD px |
-| 04 | 1.93 m | 0° | +9° | TBD px |
-| 05b | 3.17 m | −9° | −17° | TBD px |
-| 06 | 0.48 m | +2° | −14° | TBD px |
-| 07 | 2.71 m | −21° | −21° | TBD px |
-| 08 | 3.95 m | +18° | −13° | TBD px |
+| 01 | 3.05 m | −14.5° | 156 px | 59 px |
+| 02 | 2.18 m | +18.2° | 192 px | 16 px |
+| 03b | 1.48 m | −5.4° | 226 px | 27 px |
+| 04 | 1.74 m | −5.4° | 168 px | 27 px |
+| 05b | 2.96 m | −14.5° | 131 px | 37 px |
+| 06 | 0.25 m | — | not used (radar leakage zone; board fills the frame) | — |
+| 07 | 2.53 m | −25.9° | 108 px | 36 px |
+| 08 | 3.75 m | +10.8° | 22 px | 43 px |
 
-| Extrinsics | Before (co-located guess) | After |
+| Extrinsics (radar → camera) | Before (co-located guess) | After |
 |---|---|---|
-| Translation (m) | 0, 0, 0 | TBD |
-| Rotation (deg) | 0, 0, 0 | TBD |
-| Mean reprojection error (px) | TBD | TBD |
+| Rotation (Rodrigues, deg, camera axes) | 0, 0, 0 | −7.2, −2.7, +7.6 |
+| Translation (m, camera axes) | 0, 0, 0 | (+0.06, −0.48, +0.64) |
+| Mean reprojection error (px) | 143 | 35 (max 59) |
+
+35 px at 3 m with a 987 px focal length is 2°, the same size as the radar's azimuth error on a flat board (section M1), so the fit is azimuth-limited. A LiDAR→camera PnP on the same pixel centres with the LiDAR board centroids as 3D points reaches only 29 px (`calib/extrinsics_lidar_camera.json`), so the image-side centres (blob centroids of a flat board) are the next limit; composing radar→LiDAR→camera and comparing with the direct solve gives a rotation difference of 2.2°, the loop closing within the radar's bearing error. The translation is weakly constrained by seven points with degree-level bearing noise and should not be read as the physical offset; the rotation is the usable part. The other intrinsics file in red-rover (`camera_fisheye_notebooks.json`) gives the same answer to within 1° and 4 cm.
+
+![Board in the camera frames with the radar detection projected under the co-located guess](../../figures/calib_board_in_images.png)
+
+*Board found in each camera frame (orange) and the radar detection projected with no extrinsics (blue x). `python -m src.calib.board_image`.*
+
+![Radar detections before and after PnP](../../figures/calib_radar_camera.png)
+
+*Radar detections projected into the camera before (blue x) and after (green o) PnP, crops around the board. `python -m src.calib.radar_camera`.*
 
 ![Preview: radar detections projected with no extrinsics; all 8 land on or at the edge of the board](../../notes/fig/rd2/f10_calib_projection.png)
 
@@ -65,12 +75,12 @@ Check on traces not used in the fit (nearest above-ground LiDAR point to each tr
 
 
 ## Conclusion
-Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 cm on average and still holds on Session 2 data after the LiDAR swap. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: the uncalibrated preview already lands every detection on the target, so that offset is small too.
+Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 cm on average and still holds on Session 2 data after the LiDAR swap. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 143 to 35 px, which is the radar's own bearing error; the rotation (about 7° about two axes) is usable, the translation is not yet trustworthy.
 
 ## Open items
-- Radar→camera: mark the board centre in each image (or use a corner reflector apex next time), PnP + RANSAC, reprojection error
-- Pitch, roll, tz: from the board height in LiDAR plus a tape measure, or after X9
-- Repeat with a corner reflector to bring the residual down
+- Repeat with a corner reflector (apex visible in the image, strong point return) to bring both residuals down and pin the translation
+- Pitch, roll, tz for radar→LiDAR: from the board height in LiDAR plus a tape measure, or after X9
+- Close the loop: compose radar→LiDAR with a LiDAR→camera estimate and compare with radar→camera
 
 ## B-roll to capture (for the 5-minute video)
 - [ ] Phone photo of the rig showing where radar and camera sit
@@ -81,6 +91,10 @@ Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 c
 python -m src.calib.radar_lidar          # calib/extrinsics_radar_lidar.json + the two figures
 python -m src.calib.overlay data/raw/2026-10-29.16-22-36 --time 200 --accumulate 10 --out figures/calib_overlay_scotty.png
 ```
-Use it: `from src.calib.transform import RadarToLidar; T = RadarToLidar.load(); xyz_lidar = T(xyz_radar)`.
+```bash
+python -m src.calib.board_image          # board centres in the 8 camera frames -> calib/board_pixels.json
+python -m src.calib.radar_camera         # PnP -> calib/extrinsics_radar_camera.json + figure
+```
+Use them: `from src.calib.transform import RadarToLidar, RadarToCamera; T = RadarToLidar.load(); xyz_lidar = T(xyz_radar); C = RadarToCamera.load(); uv = C.pixels(xyz_radar)`.
 
 [Back to all experiments](../../EXPERIMENTS.md)
