@@ -1,27 +1,70 @@
 # Contributing (for Yining)
 
-Thank you for helping. The main pipeline is Po-Lin's course work, so the rules keep authorship clear.
+Thanks for helping. The goal for you: **rebuild objects in 3D from the walk-around recordings** (radar + LiDAR + camera). How you do it is open. This page says where the data is, how to get radar points, and what we already know.
 
-## Workflow
-1. `git checkout main && git pull`, then one branch per topic: `yining/<X-id>-<short-name>`
-   (e.g. `yining/x5-accumulation`, `yining/360-recon`).
-2. Code goes in `src/ext/<X-id>/`; results go in `experiments/<X-id>/README.md` (copy `experiments/_TEMPLATE.md`, add a row to `EXPERIMENTS.md`)
-   (question, method, data used, numbers, figures, one-line conclusion).
-3. Import the main pipeline from `src/`, do not edit it. If something there needs to change,
-   say so in the PR description and Po-Lin decides.
-4. Open a pull request into `main`; Po-Lin reviews and merges. Keep PRs small.
-5. Each figure in `experiments/` lists the command and commit that produced it.
+## The task
 
-## Data
-Captures are not in git. Po-Lin shares a copy of `data/raw/`; keep the same folder names.
-Use `notes/shots.csv` to find which trace is which shot. Camera frames contain passers-by:
-do not publish frames without anonymizing faces and plates.
+We walked around four things on 10/29 with the rig. Pick one, get a 3D model of it, then try the others.
 
-## Topics
-| ID | Topic |
-|---|---|
-| 360 | 360° walk-around reconstruction (GHC loop, spin in place): poses from LiDAR SLAM or SfM, fused radar + camera cloud, web viewer |
-| X5 | Multi-frame accumulation: density vs number of frames, with pose alignment |
-| X7 | Confidence map for dense depth, calibrated against LiDAR |
-| X9 | Is the radar elevation trustworthy? Check against LiDAR |
-| M6-eval | Evaluation scripts: dense depth vs mono depth vs LiDAR, by distance bin |
+| Object | Trace | Time in trace | Notes |
+|---|---|---|---|
+| Jeep (parked car) | `2026-10-29.15-49-40` | 11:00–17:00 | full orbit, best one to start with |
+| Walking to the Sky (metal pole) | `2026-10-29.16-12-38` | 5:30–9:40 | full orbit, rig often tilted up |
+| Scotty statue | `2026-10-29.16-22-36` | 2:59–3:45 | partial loop; flat wall behind gives a ghost at 8–9 m |
+| Planters | `2026-10-29.16-22-36`, `2026-10-29.16-27-55` | ~2:00 and ~0:00, ~1:30 | passes, not full loops |
+
+What "done" looks like: a point cloud or mesh of the object in one fixed frame, a picture of it, and a short write-up in `experiments/obj-orbit-360/README.md` (question, method, numbers, figures, what did not work). Radar-only, LiDAR-only, or fused: your call. A web viewer would be great but is optional.
+
+## Where the data is
+
+On `nunga`: `/data/christineh/DATASET/radarhd/2026-10-29/<trace>/` (read-only). The README there explains the format. In this repo, `data/raw/<trace>` links to it.
+
+Each trace has four folders, all on one Unix-time clock:
+
+- `radar/` 20 Hz raw ADC. Read it with `src/radar` (below).
+- `lidar/` 10 Hz, Ouster OS-0-128, `[128, 2048]` range image in mm, LZMA per frame. Read with `roverd.sensors.OSLidar`, or by hand: offsets in `rng_i`, `lzma.decompress`, beam angles in `lidar.json`.
+- `camera/` 30 fps, `video.avi` + `ts`. Frame k ↔ `ts[k]`.
+- `imu/` 100 Hz, `acc`, `avel`, `rot`.
+
+**Match sensors by timestamp, not by index.** Radar starts ~2 s after the camera. `np.searchsorted(ts, t)`.
+
+## Getting radar points
+
+```bash
+source .venv/bin/activate
+python -m src.radar data/raw/2026-10-29.15-49-40 --time 720 --accumulate 20   # one second at t=720 s, saves a PNG
+```
+
+In Python:
+
+```python
+from src.radar import RadarTrace, detect, to_xyz, spectra
+
+tr = RadarTrace("data/raw/2026-10-29.15-49-40")
+k = tr.index_at(t_unix)                 # frame nearest a timestamp
+pts, info = detect(tr.frame(k), tr.params)   # pts: r, az, el, v, snr per detection
+xyz = to_xyz(pts)                       # x right, y forward, z up, metres, radar frame
+info["power"]                           # dense range-azimuth map (64 az x 256 range) if you want more than points
+```
+
+What you need to know about these points:
+
+- About 10–20 per frame. `snr` tells you which to trust. Lower `pfa` in `detect()` for more points.
+- `az` + is left. Range is good to ~1 cm after a +0.18 m offset. Azimuth beam is ~14° wide, so a point target smears into an arc.
+- **`z` (elevation) is not usable yet.** Treat points as range + azimuth; height must come from LiDAR or camera.
+- `v` is radial velocity. While walking the static world shows v ≈ −v_walk·cos(az). Points off that curve are ghosts, sidelobes or moving people.
+- Ghost echoes exist at 2× a strong target's range, and behind flat walls.
+
+## What is missing (and you may need to make)
+
+- **Poses.** No pose per frame yet. LiDAR SLAM on the 128-beam scans is the obvious route; the IMU `rot` is a check.
+- **Radar ↔ LiDAR extrinsics.** Not calibrated. The sensors are rigid on one rig, so one fixed rotation + translation. A rough one from matching radar arcs to LiDAR walls is fine to start; a proper one comes from the 10/21 calibration shots (M4).
+- **Radar ↔ camera extrinsics.** Same, pending. Camera intrinsics are in the red-rover repo.
+
+## Rules (short)
+
+1. Branch from `main`: `yining/<topic>`. Code in `src/ext/<topic>/`. PR into `main`, small ones.
+2. Use `src/radar`, do not edit it. If it needs a change, say so in the PR.
+3. Results go in `experiments/<id>/README.md` with a line in `EXPERIMENTS.md`. Every figure says which command and commit made it.
+4. English only in code, figures and docs.
+5. Camera frames show people and plates. Do not publish them without blurring.
