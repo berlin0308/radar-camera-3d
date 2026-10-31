@@ -47,6 +47,18 @@ Check on traces not used in the fit (nearest above-ground LiDAR point to each tr
 | 07 | 2.53 m | −25.9° | 108 px | 36 px |
 | 08 | 3.75 m | +10.8° | 22 px | 43 px |
 
+Worked example, the point pairs PnP was given (all in `calib/extrinsics_radar_camera.json`):
+
+| Shot | 3D point, radar frame (x, y, z) m | Board centre (u, v) px | Projected, co-located guess | Projected, after PnP |
+|---|---|---|---|---|
+| calib_01 | (+0.76, +2.95, −0.65) | (1064, 671) | (1202, 743), 155 px | (1113, 705), 59 px |
+| calib_02 | (−0.68, +2.07, −0.73) | (660, 667) | (653, 859), 192 px | (652, 681), 16 px |
+| calib_03b | (+0.14, +1.47, −0.66) | (964, 737) | (1043, 949), 226 px | (971, 711), 27 px |
+| calib_04 | (+0.16, +1.73, −0.21) | (1004, 491) | (1048, 653), 168 px | (997, 517), 27 px |
+| calib_05b | (+0.74, +2.87, −0.65) | (1076, 715) | (1202, 749), 131 px | (1112, 706), 37 px |
+| calib_07 | (+1.10, +2.27, −0.68) | (1302, 747) | (1394, 804), 107 px | (1267, 738), 36 px |
+| calib_08 | (−0.70, +3.68, −0.61) | (776, 672) | (771, 694), 22 px | (744, 643), 43 px |
+
 | Extrinsics (radar → camera) | Before (co-located guess) | After |
 |---|---|---|
 | Rotation (Rodrigues, deg, camera axes) | 0, 0, 0 | −7.2, −2.7, +7.6 |
@@ -62,6 +74,16 @@ Check on traces not used in the fit (nearest above-ground LiDAR point to each tr
 ![Radar detections before and after PnP](../../figures/calib_radar_camera.png)
 
 *Radar detections projected into the camera before (blue x) and after (green o) PnP, crops around the board. `python -m src.calib.radar_camera`.*
+
+On real scenes (points at radar height, z = 0, since elevation is unusable): the co-located guess puts every radar point on one horizontal line; the calibrated projection moves them by the solved yaw and roll, so the Jeep's returns sit on the Jeep and the 15 m returns on the car row behind it. Vertical placement is not calibrated and should not be read.
+
+![Radar points on the Jeep frame, before and after](../../figures/calib_project_jeep.png)
+
+*Radar points (10 frames, SNR > 12 dB) on the parking-lot frame, co-located guess vs calibrated. `python -m src.calib.project_image data/raw/2026-10-29.15-49-40 --time 720 --accumulate 10`.*
+
+![Radar points on the Scotty frame, before and after](../../figures/calib_project_scotty.png)
+
+*Same on the Scotty segment: returns from the wall behind the statue and from the planters to the right.*
 
 ![Preview: radar detections projected with no extrinsics; all 8 land on or at the edge of the board](../../notes/fig/rd2/f10_calib_projection.png)
 

@@ -170,6 +170,10 @@ Radar to camera uses the same seven placements: the board centre in each camera 
 
 *Radar detections projected into the camera before (blue x) and after (green o) PnP, crops around the board.*
 
+![Radar points on the Jeep frame](figures/calib_project_jeep.png)
+
+*What the transform is for: radar points of one second on the parking-lot frame, co-located guess (left) and calibrated (right); points are drawn at radar height because elevation is unusable.*
+
 ---
 
 ## 7. Dense depth

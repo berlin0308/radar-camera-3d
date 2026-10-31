@@ -59,6 +59,8 @@ def run(pix_json="calib/board_pixels.json", out_json="calib/extrinsics_radar_cam
     json.dump(dict(frame_from="radar (x right, y forward, z up)", frame_to="camera (x right, y down, z forward)",
                    R=R_full.tolist(), t_m=t.tolist(), rotation_deg_rodrigues=rot_deg.tolist(), intrinsics=cam_path,
                    shots=names, reprojection_px=err.tolist(), reprojection_px_before=err0.tolist(),
+                   object_points_radar_m=obj.tolist(), image_points_px=img.tolist(),
+                   projected_px_before=proj0.tolist(), projected_px_after=proj.tolist(),
                    note="board z taken from the LiDAR board height (lidar frame); a constant z offset is absorbed by t"),
               open(out_json, "w"), indent=1)
 
