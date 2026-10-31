@@ -96,6 +96,25 @@ On real scenes (points at radar height, z = 0, since elevation is unusable): the
 *Pending: reprojection error vs range and vs azimuth. Source: TBD.*
 
 
+### Joint solve, LiDAR frame as world (`src/calib/joint.py`)
+One least-squares problem instead of pairwise chains: unknowns are the radar pose (yaw, tx, ty, tz; pitch and roll fixed at 0) and the camera pose (6) relative to the LiDAR, 10 in all; the 28 residuals are the seven shots' radar range (σ 2 cm), radar azimuth (σ 2°) and camera pixel (σ 20 px) against the LiDAR board point, radar elevation left out. Started from the pairwise answers, cost 95 → 31 (σ units).
+
+| Quantity | Pairwise | Joint | 1σ (Jacobian) |
+|---|---|---|---|
+| radar→lidar yaw | +101.9° | +99.8° | ± 2.0° |
+| radar→lidar t (x, y) | (−0.11, +0.16) m | (−0.11, +0.04) m | ± (0.06, 0.02) m |
+| radar→lidar t_z | not estimated | −0.50 m | ± 0.21 m |
+| lidar→camera t | (−0.15, −0.54, +0.28) m (PnP) | (−0.15, −0.54, +0.28) m | ± (0.12, 0.12, 0.19) m |
+| radar range residual | 8.6 cm | 3.7 cm | — |
+| radar azimuth residual | 1.6° | 1.7° | — |
+| camera pixel residual | 29 px | 29 px | — |
+
+What changed and what did not: the range residual halves because t_z is now a free parameter and the board heights (−0.2 to −0.7 m in the LiDAR frame) make it observable through range, so the radar comes out 0.50 ± 0.21 m below the LiDAR; azimuth and pixel residuals stay where the sensors put them, since no amount of joint fitting beats a flat board's bearing noise; and the radar→camera transform is now composed from the two LiDAR-referenced poses, so the loop closes by construction instead of to 2.2°. The 1σ column is the real product: with seven flat-board shots, yaw is known to 2°, in-plane offsets to a few cm, heights to 20 cm. `RadarToLidar.load_joint()` and `RadarToCamera.load_joint()` apply it. The IMU is not in the solve because it observes no target; it enters through hand-eye on the orbit segments (rotation between LiDAR scans against integrated gyro), which is the next piece.
+
+![Residuals per shot, pairwise vs joint](../../figures/calib_joint_residuals.png)
+
+*Residuals per shot, pairwise start (grey) vs joint solve (blue); the band is the assumed 1σ. `python -m src.calib.joint`.*
+
 ## Conclusion
 Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 cm on average and still holds on Session 2 data after the LiDAR swap. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 143 to 35 px, which is the radar's own bearing error; the rotation (about 7° about two axes) is usable, the translation is not yet trustworthy.
 

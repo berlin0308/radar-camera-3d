@@ -27,6 +27,12 @@ class RadarToLidar:
         j = json.load(open(path))
         return cls(j["yaw_deg"], j["t_xy_m"], j["t_z_m"] or 0.0)
 
+    @classmethod
+    def load_joint(cls, path=os.path.join(os.path.dirname(DEFAULT), "extrinsics_joint.json")):
+        """The joint solve (LiDAR as world): same yaw and xy within error, plus a z offset."""
+        j = json.load(open(path))["radar_to_lidar"]
+        return cls(j["yaw_deg"], j["t_m"][:2], j["t_m"][2])
+
     def __call__(self, xyz):
         return np.asarray(xyz) @ self.R.T + self.t
 
@@ -51,6 +57,13 @@ class RadarToCamera:
     @classmethod
     def load(cls, path=DEFAULT_CAM):
         j = json.load(open(path))
+        cam = json.load(open(os.path.join(os.path.dirname(path), os.path.basename(j["intrinsics"]))))
+        return cls(j["R"], j["t_m"], cam)
+
+    @classmethod
+    def load_joint(cls, path=os.path.join(os.path.dirname(DEFAULT_CAM), "extrinsics_joint.json")):
+        """Radar -> camera composed from the joint solve (radar -> LiDAR -> camera)."""
+        j = json.load(open(path))["radar_to_camera"]
         cam = json.load(open(os.path.join(os.path.dirname(path), os.path.basename(j["intrinsics"]))))
         return cls(j["R"], j["t_m"], cam)
 
