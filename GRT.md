@@ -34,7 +34,7 @@ GRT (Generalizable Radar Transformer; Huang, Prabhakara, Chen, Karhade, Ramanan,
 2. The LiDAR swap (OS-0-64 → OS-0-128 on 10/29). GRT output is defined on 128-beam geometry; evaluation against our 64-beam 10/21 scans needs the beam tables handled, against 10/29 scans it is direct.
 3. Timing. Radar starts ~2.2 s after the camera; all sensors share one clock, so match by timestamp.
 
-**Alignment plan (cheap, decisive):** run GRT on 10/29 static-ish moments, build our own `Occupancy3D` label from the simultaneous LiDAR scan with the same transform, and compare the two grids per azimuth column. Sweep a residual yaw of ±15° (shift the azimuth axis by k cells, 1.4° each) and a range offset of ±2 bins; take the maximum IoU / minimum Chamfer. If the residual is within one cell, GRT output is used as is; if not, the residual is one yaw and one range offset applied to GRT cells before accumulation, and it is reported. This also settles the URDF-vs-joint-solve disagreement independently of the board calibration.
+**Alignment plan (cheap, decisive):** run GRT on 10/29 segments, build our own `Occupancy3D` label from the simultaneous LiDAR scan with the same transform (nrdk does this for us when the trace is loaded with `sensors=[radar, lidar]`), reduce both grids to first-return depth maps the way the paper scores itself, and sweep a residual yaw of ±11° (shift the azimuth axis by k cells, 1.4° each) on the Chamfer between the two. **Done 11/1, section 10:** no consistent residual (Scotty minimum at +2.8°, Jeep none within the sweep), so GRT output is used as is; the test's sensitivity is about 3°.
 
 **What our own calibration is used for:** only the classical chain. CFAR points live in the radar frame and go through `RadarToLidar.load_joint()` into the LiDAR frame. Nothing from M4 touches GRT output.
 
@@ -96,8 +96,8 @@ Both routes take the same poses, voxel size and segment, so the only difference 
 
 | Piece | Owner | Status | Note |
 |---|---|---|---|
-| GRT inference on our traces → `occ3d` per frame as an lzmaf channel in a `_grt/` folder next to each trace | Po-Lin (capstone side already has nrdk + checkpoints on the server) | to do | `evaluate.py --trace` in `nrdk/grt` writes metrics; a small script that saves the logits is needed (`Result` + dataloader, ~40 lines) |
-| Occupancy cell → xyz with real beam angles; alignment check (section 2) | Po-Lin | to do | `src/grt/occupancy.py`, `src/grt/align.py` |
+| GRT inference on our traces → `occ3d` logits + nrdk's LiDAR label + timestamps per frame | Po-Lin | done 11/1 on nunga | `src/grt/infer.py`; dumps in `/data/berlin/grt/<trace>/` (float16, 1 MB per frame); section 10 |
+| Occupancy cell → xyz with real beam angles; alignment check (section 2) | Po-Lin | done 11/1 | `src/grt/occupancy.py`, `src/grt/align.py`, `src/grt/compare_frame.py` |
 | CFAR points → LiDAR frame | done | `src.radar` + `RadarToLidar.load_joint()` |  |
 | LiDAR SLAM poses, interpolation to radar time | Yining | to do | KISS-ICP; `_lidar/pose.npz`, `_radar/pose.npz` in roverp's format so both projects read the same file |
 | Accumulation routes A and B, meshing, viewer | Yining | to do | `src/ext/360/` |
@@ -130,16 +130,51 @@ For the course project it is the "learned vs classical" comparison with the same
 - [ ] Whether `semseg` or `vel` heads help remove people / multipath; optional.
 - [ ] I/Q-1M has no published camera–LiDAR calibration (capstone 9/28–29); nothing here depends on it, but the dense-depth stage (M6) does, and that is our own M4 result.
 
-## 9. Commands (what exists today)
+## 10. First run on our data (2026-11-01)
+
+**Setup on nunga.** `~/nrdk-venv` (Python 3.12, torch 2.14.1+cu126), nrdk at the capstone's pinned commit `682b4fb` installed editable from `~/nrdk` (the PyPI-style install drops `nrdk/roverd/dataloader.py`, so editable it is), roverd 0.3.5 and xwr 0.5.2 from GitHub, the GRT reference package on `PYTHONPATH=~/nrdk/grt`, `JAXTYPING_DISABLE=1`. Checkpoint `base/small` from OSN, only the config, `weights.pth` and the best checkpoint (`epoch=3-step=82101`, 456 MB) in `/data/berlin/iq1m-checkpoints/base/small/`. Our traces load through nrdk's own dataloader unchanged (`roverd.Dataset` with `sensors=[radar, lidar]`, `Next` sync on the radar), so the LiDAR label comes out of the same pipeline as in training.
+
+**Speed and memory.** 29.8 M parameters; batch 16 on one RTX 4090: 48 frames in 2 s, 2 GB of GPU memory. Dumps: Scotty window `16-22-36` 160–230 s (1,400 frames) and Jeep window `15-49-40` 690–750 s (1,200 frames), logits as float16 plus the boolean label, 1 MB per frame.
+
+**Does it work on our rig, and is it aligned?** Scored as the paper does, first occupied cell along range per (elevation, azimuth) column, rows +40° to −16° (structures, not the ground under the rig), every 5th frame:
+
+| Window | GRT threshold | Chamfer median GRT→LiDAR / LiDAR→GRT | First-return depth error, median | Within 1 m | GRT covers label columns |
+|---|---|---|---|---|---|
+| Scotty (280 frames) | p > 0.5 | 0.60 / 0.70 m | 2.10 m | 33 % | 94 % |
+| Scotty | p > 0.9 | 0.34 / 0.64 m | 0.70 m | 58 % | 57 % |
+| Jeep (240 frames) | p > 0.5 | 0.73 / 0.52 m | 1.40 m | 32 % | 99 % |
+| Jeep | p > 0.9 | 0.40 / 0.38 m | 0.70 m | 52 % | 91 % |
+
+The released eval files for I/Q-1M outdoor give about 0.6 m under the pinned first-return Chamfer (capstone notes, 9/24; different implementation details, same idea), so the checkpoint runs on our rig out of the box at roughly its published accuracy. The residual-yaw sweep on the Chamfer finds a shallow minimum at +2.8° on the Scotty window and no minimum within ±11° on the Jeep window (that window is dominated by a person walking beside the rig and by the ground); there is no consistent residual, no correction is applied, and the test cannot resolve better than about 3°. The joint solve's 10° twist between radar and LiDAR is therefore not something GRT output shows relative to our LiDAR, which is consistent with the two rigs being the same design.
+
+**What the output looks like.** GRT's occupancy is smeared along range and elevation (the radar has almost no vertical resolution and 14° in azimuth), so at p > 0.5 the first return is biased near by 1–3 m and a BEV built as "max over elevation" lights up everywhere; raising the threshold to 0.9 trades coverage for accuracy (94 % → 57 % of label columns, 0.60 → 0.34 m). This is the τ knob of section 4 and the reason the log-odds route (3.3 B) is preferred over hard thresholds. Compared with our CFAR chain on the same instants (`figures/grt_vs_cfar_*.png`): CFAR gives 10–20 sharp points per frame on the strongest reflectors (the Jeep arc, the wall), GRT gives a full depth map that follows walls and the car silhouette coarsely and covers the whole field of view.
+
+![GRT vs LiDAR as first-return depth, Scotty window](figures/grt_align_scotty.png)
+
+*Scotty window: LiDAR label depth, GRT first-return depth, their difference, and the residual-yaw sweep on Chamfer. `python -m src.grt.align`.*
+
+![One instant, four views: camera, CFAR, GRT, label](figures/grt_vs_cfar_scotty.png)
+
+*Scotty at t = 200 s: camera; our CFAR points on the LiDAR scan (joint calibration); GRT first-return cells (p > 0.5) on the same scan, no calibration; nrdk's LiDAR label as first-return cells. `python -m src.grt.compare_frame`.*
+
+![Same for the Jeep](figures/grt_vs_cfar_jeep.png)
+
+*Parking lot at t = 720 s, same four views.*
+
+Still open from this run: the CFAR-vs-GRT comparison proper (section 4) needs poses; the Chamfer here is per frame in the sensor frame. `occ2d`, `semseg` and `vel` checkpoints are not downloaded yet (same `rclone copy`, 5 minutes each).
+
+## 11. Commands (what exists today)
 
 ```bash
 # classical chain, points in the LiDAR frame
 python -m src.radar data/raw/2026-10-29.15-49-40 --time 720 --accumulate 20
 python -c "from src.calib.transform import RadarToLidar; T = RadarToLidar.load_joint()"   # xyz_lidar = T(xyz_radar)
 
-# GRT (capstone server, nrdk/grt checkout with the base checkpoint as a Result directory)
-uv run python evaluate.py <results_dir> --data-root <root with our traces> --trace 2026-10-29.15-49-40 --output <out>
-# to be written: dump occ3d logits per frame (src/grt/infer.py), cells -> xyz (src/grt/occupancy.py), alignment sweep (src/grt/align.py)
+# GRT on nunga (nrdk env, see section 10)
+export PYTHONPATH=~/nrdk/grt CUDA_VISIBLE_DEVICES=0 JAXTYPING_DISABLE=1
+~/nrdk-venv/bin/python -m src.grt.infer /data/berlin/iq1m-checkpoints/base/small data/raw/2026-10-29.16-22-36 --out /data/berlin/grt --start 160 --seconds 70
+.venv/bin/python -m src.grt.align /data/berlin/grt/2026-10-29.16-22-36 --trace data/raw/2026-10-29.16-22-36 --out figures/grt_align_scotty.png
+.venv/bin/python -m src.grt.compare_frame /data/berlin/grt/2026-10-29.16-22-36 --trace data/raw/2026-10-29.16-22-36 --time 200 --out figures/grt_vs_cfar_scotty.png
 ```
 
 Sources read locally: `wiselabcmu/grt` @4a04614 (`deepradar/transforms/lidar.py`, `deepradar/objectives/occupancy3.py`, `deepradar/utils.py`, `config/obj/map.yaml`, `config/grt/grt.yaml`, `demo/`), `RadarML/nrdk` @d606113 (`grt/config/**`, `grt/evaluate.py`, `docs/grt/*.md`, `src/nrdk/roverd/lidar.py`, `src/nrdk/metrics/pointcloud.py`), `RadarML/red-rover` @6687094 (`docs/iq1m/*.md`, `docs/roverc/tips.md`, `collect/config/grt-o.yaml`, `processing/catkin_ws/src/slam/red-rover.urdf`, `processing/src/roverp/_cli/sensorpose.py`, `format/src/roverd/transforms/ouster.py`), and the capstone plan page (Notion, entries of 9/23–10/17).

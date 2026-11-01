@@ -81,6 +81,18 @@ python -m src.calib.examples --wide --pick 0 3 5 --out x.png                    
 
 The 10/29 traces were recorded after a LiDAR swap (OS-0-64 → OS-0-128). The transform still holds there to ~20–30 cm; if your reconstruction looks offset, that is the first suspect.
 
+## GRT occupancy (learned radar), if you want a denser input
+
+`GRT.md` has the full story. Short version: the released GRT checkpoint runs on our traces unchanged and outputs a 64 × 128 × 64 occupancy grid **already in the LiDAR frame** (no calibration needed, just the LiDAR pose). Dumps for the Scotty and Jeep windows are in `/data/berlin/grt/<trace>/` (`occ3d_logit.npy` float16 `[N, el, az, rng]`, `occ3d_label.npy`, `ts.npy`).
+
+```python
+from src.grt.occupancy import GridGeometry
+G = GridGeometry("data/raw/2026-10-29.15-49-40")
+xyz, p = G.points(logit[k], threshold=0.7)      # occupied cells of frame k -> xyz in the LiDAR frame, with probabilities
+```
+
+Expect it to be smeared: 14° wide in azimuth, little elevation, first returns biased 1–3 m near at p > 0.5. Use the probabilities (log-odds fusion) rather than a hard threshold, and compare with the CFAR points on the same poses.
+
 ## Rules (short)
 
 1. Branch from `main`: `yining/<topic>`. Code in `src/ext/<topic>/`. PR into `main`, small ones.

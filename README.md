@@ -18,6 +18,8 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
 | `src/calib/` | extrinsics from the 10/21 board shots: `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP), `joint` (one weighted solve, LiDAR frame); `RadarToLidar` / `RadarToCamera` to apply them; `overlay`, `compare`, `examples` to look at the result |
 | `calib/` | `extrinsics_joint.json` (use this), the pairwise `extrinsics_radar_lidar.json` / `extrinsics_radar_camera.json` / `extrinsics_lidar_camera.json`, `board_pixels.json`, fisheye intrinsics from red-rover |
+| `src/grt/` | the learned model next to the classical chain: `infer` runs a released GRT checkpoint on a trace (nrdk env, see `GRT.md`), `occupancy` turns grid cells into xyz with the real Ouster angles, `align` scores GRT against our LiDAR as first-return depth, `compare_frame` draws camera / CFAR / GRT / label for one instant |
+| `GRT.md` | proposal and first results for GRT occupancy as a reconstruction input, CFAR vs GRT |
 | `tests/` | each stage against `xwr.rsp` on the same frame (`python -m pytest tests/ -q`) |
 | `src/ext/<X-id>/` | extensions (see CONTRIBUTING.md) |
 | `figures/` | report figures, named by trace and frame |
