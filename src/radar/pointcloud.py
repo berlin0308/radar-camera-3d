@@ -54,3 +54,14 @@ def to_xyz(pts):
     """Spherical -> Cartesian: x right, y forward, z up (metres)."""
     r, az, el = pts["r"], pts["az"], pts["el"]
     return np.stack([-r * np.sin(az) * np.cos(el), r * np.cos(az) * np.cos(el), r * np.sin(el)], axis=-1)
+
+
+def to_xy(pts):
+    """(N, 3) with z = 0: the slant range placed in the plane, x right, y forward.
+
+    The elevation estimate (two antenna rows half a wavelength apart) is too noisy to use: on the
+    Scotty orbit 13% of detections have |el| > 20 deg and 8% > 45 deg. to_xyz scales the range by
+    cos(el), so those points land far too short; whenever z is set to 0 anyway, use this instead.
+    """
+    r, az = pts["r"], pts["az"]
+    return np.stack([-r * np.sin(az), r * np.cos(az), np.zeros(len(r))], axis=-1)

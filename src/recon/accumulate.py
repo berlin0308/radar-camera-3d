@@ -25,7 +25,8 @@ import argparse, os
 import numpy as np
 from scipy.ndimage import median_filter
 
-from ..radar import RadarTrace, detect, to_xyz
+from ..radar import RadarTrace, detect
+from ..radar.pointcloud import to_xy
 from ..radar.ego import static_mask_from_velocity, estimate_ego_dense
 from ..radar.angle import AZIMUTHS
 from ..calib.lidar import LidarTrace
@@ -84,7 +85,7 @@ def main():
         v_lidar = T[:3, :3].T @ vel_w[n]; v_radar = R_rl.T @ v_lidar                  # world -> lidar -> radar frame
         m = static_mask_from_velocity(pts, v_radar[:2], v_res=tr.params.velocity_resolution)
         s_dop, phi_dop, sup = estimate_ego_dense(info["spec_az"], tr.params.velocities, AZIMUTHS)   # Doppler-only cross-check
-        xyz = to_xyz(pts); xyz[:, 2] = 0.0
+        xyz = to_xy(pts)                                                          # slant range in the plane, z = 0 (elevation unusable)
         xyz_w = T_rl(xyz) @ T[:3, :3].T + T[:3, 3]
         world.append(xyz_w); snr.append(pts["snr"]); frame.append(np.full(len(pts), k)); kept.append(m)
         ego.append((t_w[n], np.hypot(*v_radar[:2]), np.arctan2(-v_radar[0], v_radar[1]), s_dop, phi_dop, sup, len(pts)))
