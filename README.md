@@ -16,8 +16,8 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `notes/shots.csv` | which trace is which shot |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
-| `src/calib/` | extrinsics from the 10/21 board shots: `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP); `RadarToLidar` / `RadarToCamera` to apply them; `overlay` to check on any trace |
-| `calib/` | `extrinsics_radar_lidar.json`, `extrinsics_radar_camera.json`, `board_pixels.json`, fisheye intrinsics from red-rover |
+| `src/calib/` | extrinsics from the 10/21 board shots: `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP), `joint` (one weighted solve, LiDAR frame); `RadarToLidar` / `RadarToCamera` to apply them; `overlay`, `compare`, `examples` to look at the result |
+| `calib/` | `extrinsics_joint.json` (use this), the pairwise `extrinsics_radar_lidar.json` / `extrinsics_radar_camera.json` / `extrinsics_lidar_camera.json`, `board_pixels.json`, fisheye intrinsics from red-rover |
 | `tests/` | each stage against `xwr.rsp` on the same frame (`python -m pytest tests/ -q`) |
 | `src/ext/<X-id>/` | extensions (see CONTRIBUTING.md) |
 | `figures/` | report figures, named by trace and frame |
@@ -37,3 +37,31 @@ Put the captures under `data/raw/` with their original trace names (e.g. `data/r
 python -m pytest tests/ -q                                                   # stages vs xwr.rsp
 python -m src.radar data/raw/2026-10-29.15-49-40 --time 720 --accumulate 20  # point cloud of one second
 ```
+
+## Calibration (extrinsics)
+
+Radar, LiDAR and camera are rigid on the rig; the fixed transforms between them come from the eight board placements of 2026-10-21 (`calib_01`…`08`, 10 s each). Full method, numbers and figures: [experiments/m4-extrinsics](experiments/m4-extrinsics/README.md).
+
+| Transform | Method | Result | Error |
+|---|---|---|---|
+| radar → LiDAR | joint solve (LiDAR as world, range / azimuth / pixel residuals weighted by their noise) | yaw +99.8°, t = (−0.11, +0.04, −0.50) m | ±2°, ±(6, 2, 21) cm; range residual 3.7 cm |
+| LiDAR → camera | same solve | `calib/extrinsics_joint.json` | ±4°, ±15 cm; 29 px |
+| radar → camera | composed from the two above | `calib/extrinsics_joint.json` | consistent by construction |
+
+Pairwise solves (Kabsch 2D, PnP) are kept in `calib/` for comparison; the joint one is the one to use. Pitch and roll of the radar are fixed at 0 (unobservable without radar elevation). Limits come from the flat board, not the solver; a corner reflector session would bring them down.
+
+```python
+from src.calib.transform import RadarToLidar, RadarToCamera
+T = RadarToLidar.load_joint();  xyz_lidar = T(xyz_radar)     # radar frame -> LiDAR frame (x right, y forward, z up -> Ouster sensor frame)
+C = RadarToCamera.load_joint(); uv = C.pixels(xyz_radar)     # radar frame -> pixels in the 1920x1080 fisheye frame
+```
+
+```bash
+python -m src.calib.radar_lidar                                  # pairwise radar->LiDAR (Kabsch)
+python -m src.calib.board_image && python -m src.calib.radar_camera   # board centres in the images, pairwise PnP
+python -m src.calib.joint                                        # joint solve -> calib/extrinsics_joint.json
+python -m src.calib.overlay  data/raw/<trace> --time <s> --joint --out x.png   # radar points on the LiDAR scan
+python -m src.calib.compare  data/raw/<trace> --time <s> --out x.png           # one frame, four calibrations
+python -m src.calib.examples --wide --pick 0 3 5 --out x.png                   # chosen scenes, none vs joint
+```
+Rerun the whole chain after any change to the rig.

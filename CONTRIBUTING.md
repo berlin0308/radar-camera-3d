@@ -58,14 +58,28 @@ What you need to know about these points:
 ## What is missing (and you may need to make)
 
 - **Poses.** No pose per frame yet. LiDAR SLAM on the 128-beam scans is the obvious route; the IMU `rot` is a check.
-- **Radar ↔ LiDAR extrinsics.** Done in 2D (yaw + xy, ~8 cm residual), see `experiments/m4-extrinsics/`. Use it:
-  ```python
-  from src.calib.transform import RadarToLidar
-  T = RadarToLidar.load()
-  xyz_lidar = T(to_xyz(pts))          # radar points -> LiDAR frame; z is passed through, not calibrated
-  ```
-  Check it on any trace: `python -m src.calib.overlay data/raw/<trace> --time <s> --accumulate 10 --out x.png`.
-- **Radar ↔ camera extrinsics.** Done by PnP, 35 px reprojection error (radar bearing limited). `C = RadarToCamera.load(); uv = C.pixels(xyz_radar)` gives pixels in the 1920×1080 frame. Intrinsics: `calib/camera_fisheye_iq1m.json` (OpenCV fisheye, from red-rover).
+## Calibration (done, use it)
+
+Radar ↔ LiDAR ↔ camera extrinsics exist, from the 10/21 board shots, solved jointly with the LiDAR frame as world. Numbers and figures: `experiments/m4-extrinsics/`.
+
+```python
+from src.calib.transform import RadarToLidar, RadarToCamera
+T = RadarToLidar.load_joint()
+xyz_lidar = T(to_xyz(pts))          # radar points -> LiDAR frame (Ouster sensor frame). This is what you feed SLAM poses.
+C = RadarToCamera.load_joint()
+uv = C.pixels(to_xyz(pts))          # radar points -> pixels, 1920x1080 fisheye frame
+```
+
+What to expect: yaw good to ±2°, in-plane offset ±6 cm, height ±21 cm, camera ±4° / ±15 cm. Radar pitch and roll are assumed 0. `z` of radar points is still unusable, so set it to 0 (or take height from LiDAR) before projecting.
+
+Look at it before trusting it:
+
+```bash
+python -m src.calib.overlay  data/raw/<trace> --time <s> --accumulate 10 --joint --out x.png   # radar points on the LiDAR scan, top view
+python -m src.calib.examples --wide --pick 0 3 5 --out x.png                                    # radar points on photos, none vs calibrated
+```
+
+The 10/29 traces were recorded after a LiDAR swap (OS-0-64 → OS-0-128). The transform still holds there to ~20–30 cm; if your reconstruction looks offset, that is the first suspect.
 
 ## Rules (short)
 
