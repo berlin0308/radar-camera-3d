@@ -52,12 +52,14 @@ What you need to know about these points:
 - About 10–20 per frame. `snr` tells you which to trust. Lower `pfa` in `detect()` for more points.
 - `az` + is left. Range is good to ~1 cm after a +0.18 m offset. Azimuth beam is ~14° wide, so a point target smears into an arc.
 - **`z` (elevation) is not usable yet.** Treat points as range + azimuth; height must come from LiDAR or camera.
-- `v` is radial velocity. While walking the static world shows v ≈ −v_walk·cos(az). Points off that curve are ghosts, sidelobes or moving people.
+- `v` is radial velocity, **negative = approaching**. While walking the static world shows v ≈ −v_walk·cos(az − heading). Points off that curve are ghosts, sidelobes or moving people. `src/radar/ego.py` does this test for you: `filter_static(pts, info, tr.params)` keeps the static-world points using the radar's own ego-velocity estimate (no poses needed), `static_mask_from_velocity(pts, v_xy)` does the same with a velocity you know (e.g. from the LiDAR poses).
 - Ghost echoes exist at 2× a strong target's range, and behind flat walls.
 
 ## What is missing (and you may need to make)
 
-- **Poses.** No pose per frame yet. LiDAR SLAM on the 128-beam scans is the obvious route; the IMU `rot` is a check.
+- **Poses.** A first version exists: KISS-ICP odometry on the LiDAR scans, `python -m src.recon.poses <trace> --start <s> --seconds <n>` → `data/poses/<trace>/lidar.npz` (per scan) and `radar.npz` (per radar frame, keys `t`, `T` [N,4,4] lidar→world, `index`). Keep the defaults (IMU-gyro deskew, 30 m / 0.3 m map): KISS-ICP's own deskew and its 50 m / 0.5 m defaults both lose the heading on fast swings of this handheld rig, see `experiments/obj-orbit-360/`. No loop closure, so drift over a long orbit is yours to check (or replace with FAST-LIO2 / a loop-closing SLAM). Per-scan jitter is ~0.1 m, so smooth before you differentiate.
+- **Accumulation.** `python -m src.recon.accumulate <trace> --start <s> --seconds <n> --out x.png` puts the static-filtered CFAR points and the LiDAR (ground removed) into the world frame with those poses → `data/recon/<trace>/radar_points.npz`, `lidar_points.npz`. Start from this for the object reconstruction; results so far are in `experiments/obj-orbit-360/README.md`.
+
 ## Calibration (done, use it)
 
 Radar ↔ LiDAR ↔ camera extrinsics exist, from the 10/21 board shots, solved jointly with the LiDAR frame as world. Numbers and figures: `experiments/m4-extrinsics/`.
@@ -70,7 +72,7 @@ C = RadarToCamera.load_joint()
 uv = C.pixels(to_xyz(pts))          # radar points -> pixels, 1920x1080 fisheye frame
 ```
 
-What to expect: yaw good to ±2°, in-plane offset ±6 cm, height ±21 cm, camera ±4° / ±15 cm. Radar pitch and roll are assumed 0. `z` of radar points is still unusable, so set it to 0 (or take height from LiDAR) before projecting.
+What to expect: yaw good to ±1.5°, in-plane offset ±5 cm, height ±15 cm, camera ±3° / ±10–14 cm. Radar pitch and roll are assumed 0. `z` of radar points is still unusable, so set it to 0 (or take height from LiDAR) before projecting.
 
 Look at it before trusting it:
 

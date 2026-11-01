@@ -15,12 +15,16 @@ def spectra(cube):
     return rd, azimuth_fft(va[:, 1]), azimuth_fft(va[:, 0])
 
 
-def detect(cube, params, train=8, guard=2, pfa=1e-3, r_min=0.35, r_max=20.5):
+RANGE_OFFSET = 0.183     # m; the radar reads long by this much (M1 fit against a tape measure, 10/21)
+
+
+def detect(cube, params, train=8, guard=2, pfa=1e-3, r_min=0.35, r_max=20.5, range_offset=RANGE_OFFSET):
     """Detections of one frame.
 
     Power is summed over Doppler before CFAR (the rig moves, so a static scene is spread over
     velocity). Bins below r_min (TX->RX leakage) and above r_max (I/Q mirror of near echoes) are
     masked. Velocity and elevation are read at the strongest Doppler bin of each detected cell.
+    The constant range bias measured in M1 is subtracted from r (range_offset=0 to get raw bins).
     Returns (points, info) where info holds the intermediate maps for plotting.
     """
     rd, spec_az, spec_el = spectra(cube)
@@ -33,7 +37,7 @@ def detect(cube, params, train=8, guard=2, pfa=1e-3, r_min=0.35, r_max=20.5):
     a_idx, r_idx = np.nonzero(hit)
     kd = np.argmax(np.abs(spec_az[:, a_idx, r_idx]), axis=0)
     pts = np.empty(len(a_idx), dtype=POINT_DTYPE)
-    pts["r"] = ranges[r_idx]
+    pts["r"] = ranges[r_idx] - range_offset
     pts["az"] = AZIMUTHS[a_idx]
     pts["el"] = np.arcsin(elevation(spec_az[kd, a_idx, r_idx], spec_el[kd, a_idx, r_idx]))
     pts["v"] = params.velocities[kd]

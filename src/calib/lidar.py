@@ -27,10 +27,16 @@ class LidarTrace:
         return np.frombuffer(lzma.decompress(buf), "<u2").reshape(self.shape).astype(np.float32) / 1000
 
     def xyz(self, k, r_min=0.3):
-        """(N, 3) points of scan k in the lidar frame (x, y in the spin plane, z up)."""
+        """(N, 3) points of scan k in the Ouster *lidar* frame (x, y in the spin plane, z up).
+
+        Beam direction = encoder angle of the column minus the beam's azimuth offset, as in
+        roverd/ouster-sdk (checked against roverd's lookup table: 4 mm median difference). The
+        sensor frame used by the URDF is this frame yawed by 180 deg and raised 36 mm; GRT's
+        grid and our calibration both live in this lidar frame.
+        """
         r = self.range_image(k)
         ok = r > r_min
-        th = self.enc + self.az
+        th = self.enc - self.az
         x = r * np.cos(th) * np.cos(self.alt); y = r * np.sin(th) * np.cos(self.alt); z = r * np.sin(self.alt)
         return np.stack([x[ok], y[ok], z[ok]], axis=-1)
 

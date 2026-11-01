@@ -15,7 +15,7 @@ import numpy as np
 from ..radar import RadarTrace, detect, AZIMUTHS
 from .lidar import LidarTrace
 
-RANGE_OFFSET = 0.183            # m, radar reads long by this much (M1 fit)
+from ..radar.pointcloud import RANGE_OFFSET   # 0.183 m, applied inside detect(); kept here for the json record
 SHOTS = {"calib_01": "2026-10-21.15-43-34", "calib_02": "2026-10-21.15-44-38", "calib_03b": "2026-10-21.15-47-59",
          "calib_04": "2026-10-21.15-49-11", "calib_05b": "2026-10-21.15-53-58", "calib_06": "2026-10-21.15-55-19",
          "calib_07": "2026-10-21.15-56-29", "calib_08": "2026-10-21.15-57-27"}
@@ -34,7 +34,7 @@ def radar_board(trace_dir, n_frames=40, r_max=5.0):
         if len(pts):
             p = pts[np.argmax(pts["snr"])]; rows.append((p["r"], p["az"], p["el"], p["snr"]))
     m = np.median(np.array(rows), axis=0)
-    return dict(r=float(m[0] - RANGE_OFFSET), az=float(m[1]), el=float(m[2]), snr=float(m[3]), t=float(tr.ts[len(tr) // 2]))
+    return dict(r=float(m[0]), az=float(m[1]), el=float(m[2]), snr=float(m[3]), t=float(tr.ts[len(tr) // 2]))   # detect() already removes the range offset
 
 
 def lidar_candidates(xyz, r, dr=0.5, z_lo=-1.0, z_hi=0.6, cell=0.15, min_pts=20, max_extent=1.0, min_height=0.25):

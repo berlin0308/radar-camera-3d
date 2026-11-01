@@ -1,6 +1,6 @@
 # M4: radar to LiDAR and radar to camera extrinsics
 
-**Status:** Radar→LiDAR solved in 2D and radar→camera solved by PnP (2026-11-01, both preliminary)
+**Status:** Radar→LiDAR solved in 2D, radar→camera by PnP, and one joint solve (2026-11-01, preliminary). Numbers below are from the corrected LiDAR geometry (11/1 evening: the beam-azimuth offset sign in `src/calib/lidar.py` was flipped, 0.7 m median error per LiDAR point; everything was rerun).
 
 ## Question
 Where is the radar relative to the LiDAR and the camera, and how far do transformed radar points land from the target?
@@ -16,12 +16,12 @@ Where is the radar relative to the LiDAR and the camera, and how far do transfor
 ### Radar → LiDAR
 | Quantity | Value |
 |---|---|
-| yaw (radar → lidar) | +101.9° |
-| t (x, y) in the lidar frame | (−0.114, +0.157) m |
+| yaw (radar → lidar) | +94.0° (exact alignment of the two frames would be +90°) |
+| t (x, y) in the lidar frame | (−0.142, −0.002) m |
 | shots used | 7 (calib_06 skipped: board at 0.25 m, inside the radar leakage zone) |
-| residual per shot | 01 16.1 cm · 02 6.3 · 03b 11.0 · 04 3.0 · 05b 11.2 · 07 1.0 · 08 11.2; mean 8.5 cm |
+| residual per shot | 01 13.7 cm · 02 7.1 · 03b 7.2 · 04 4.2 · 05b 10.8 · 07 1.3 · 08 12.7; mean 8.1 cm |
 
-Check on traces not used in the fit (nearest above-ground LiDAR point to each transformed radar point, xy): room scene 10/21 median 11 cm, 68 % within 0.5 m; Scotty segment 10/29 (after the swap to the OS-0-128) median 22 cm, 60 %; parking lot 10/29 median 145 cm, 29 % (the radar sees cars at 15 m where this scan has almost no returns, and the rig is walking; the Jeep itself lines up).
+Check on traces not used in the fit (nearest above-ground LiDAR point to each transformed radar point, xy, 10–20 radar frames overlaid without poses against one scan): room scene 10/21 median 11 cm, 67 % within 0.5 m; Scotty segment 10/29 (after the swap to the OS-0-128, rig walking) median 58 cm, 49 %; parking lot 10/29 median 241 cm, 13 % (the radar sees cars at 15 m where this scan has almost no returns, and the rig is walking; the Jeep itself lines up). The walking checks improve once per-frame poses are used (section obj-orbit-360).
 
 ![Board found in LiDAR and the radar detection after the transform, per shot](../../figures/calib_radar_lidar_shots.png)
 
@@ -38,34 +38,34 @@ Check on traces not used in the fit (nearest above-ground LiDAR point to each tr
 ### Radar → camera
 | Placement | Range (offset removed) | Azimuth (+ left) | Reprojection error, co-located guess | After PnP |
 |---|---|---|---|---|
-| 01 | 3.05 m | −14.5° | 156 px | 59 px |
-| 02 | 2.18 m | +18.2° | 192 px | 16 px |
-| 03b | 1.48 m | −5.4° | 226 px | 27 px |
-| 04 | 1.74 m | −5.4° | 168 px | 27 px |
-| 05b | 2.96 m | −14.5° | 131 px | 37 px |
+| 01 | 3.05 m | −14.5° | 147 px | 55 px |
+| 02 | 2.18 m | +18.2° | 138 px | 9 px |
+| 03b | 1.48 m | −5.4° | 189 px | 20 px |
+| 04 | 1.74 m | −5.4° | 142 px | 35 px |
+| 05b | 2.96 m | −14.5° | 131 px | 36 px |
 | 06 | 0.25 m | — | not used (radar leakage zone; board fills the frame) | — |
-| 07 | 2.53 m | −25.9° | 108 px | 36 px |
-| 08 | 3.75 m | +10.8° | 22 px | 43 px |
+| 07 | 2.53 m | −25.9° | 100 px | 34 px |
+| 08 | 3.75 m | +10.8° | 32 px | 39 px |
 
 Worked example, the point pairs PnP was given (all in `calib/extrinsics_radar_camera.json`):
 
 | Shot | 3D point, radar frame (x, y, z) m | Board centre (u, v) px | Projected, co-located guess | Projected, after PnP |
 |---|---|---|---|---|
-| calib_01 | (+0.76, +2.95, −0.65) | (1064, 671) | (1202, 743), 155 px | (1113, 705), 59 px |
-| calib_02 | (−0.68, +2.07, −0.73) | (660, 667) | (653, 859), 192 px | (652, 681), 16 px |
-| calib_03b | (+0.14, +1.47, −0.66) | (964, 737) | (1043, 949), 226 px | (971, 711), 27 px |
-| calib_04 | (+0.16, +1.73, −0.21) | (1004, 491) | (1048, 653), 168 px | (997, 517), 27 px |
-| calib_05b | (+0.74, +2.87, −0.65) | (1076, 715) | (1202, 749), 131 px | (1112, 706), 37 px |
-| calib_07 | (+1.10, +2.27, −0.68) | (1302, 747) | (1394, 804), 107 px | (1267, 738), 36 px |
-| calib_08 | (−0.70, +3.68, −0.61) | (776, 672) | (771, 694), 22 px | (744, 643), 43 px |
+| calib_01 | (+0.76, +2.95, −0.57) | (1064, 671) | (1203, 719), 147 px | (1116, 691), 55 px |
+| calib_02 | (−0.68, +2.07, −0.60) | (660, 667) | (650, 805), 138 px | (652, 664), 9 px |
+| calib_03b | (+0.14, +1.47, −0.59) | (964, 737) | (1044, 909), 189 px | (971, 718), 20 px |
+| calib_04 | (+0.16, +1.73, −0.16) | (1004, 491) | (1049, 625), 142 px | (994, 525), 35 px |
+| calib_05b | (+0.74, +2.87, −0.65) | (1076, 715) | (1202, 749), 131 px | (1112, 713), 36 px |
+| calib_07 | (+1.10, +2.27, −0.63) | (1302, 747) | (1395, 783), 100 px | (1271, 733), 34 px |
+| calib_08 | (−0.70, +3.68, −0.65) | (776, 672) | (772, 704), 32 px | (740, 658), 39 px |
 
 | Extrinsics (radar → camera) | Before (co-located guess) | After |
 |---|---|---|
-| Rotation (Rodrigues, deg, camera axes) | 0, 0, 0 | −7.2, −2.7, +7.6 |
-| Translation (m, camera axes) | 0, 0, 0 | (+0.06, −0.48, +0.64) |
-| Mean reprojection error (px) | 143 | 35 (max 59) |
+| Rotation (Rodrigues, deg, camera axes) | 0, 0, 0 | −5.2, −2.7, +6.5 |
+| Translation (m, camera axes) | 0, 0, 0 | (+0.04, −0.35, +0.57) |
+| Mean reprojection error (px) | 125 | 33 (max 55) |
 
-35 px at 3 m with a 987 px focal length is 2°, the same size as the radar's azimuth error on a flat board (section M1), so the fit is azimuth-limited. A LiDAR→camera PnP on the same pixel centres with the LiDAR board centroids as 3D points reaches only 29 px (`calib/extrinsics_lidar_camera.json`), so the image-side centres (blob centroids of a flat board) are the next limit; composing radar→LiDAR→camera and comparing with the direct solve gives a rotation difference of 2.2°, the loop closing within the radar's bearing error. The translation is weakly constrained by seven points with degree-level bearing noise and should not be read as the physical offset; the rotation is the usable part. The other intrinsics file in red-rover (`camera_fisheye_notebooks.json`) gives the same answer to within 1° and 4 cm.
+33 px at 3 m with a 987 px focal length is 2°, the same size as the radar's azimuth error on a flat board (section M1), so the fit is azimuth-limited. A LiDAR→camera PnP on the same pixel centres with the LiDAR board centroids as 3D points reaches 23 px (`calib/extrinsics_lidar_camera.json`), so the image-side centres (blob centroids of a flat board) are the next limit; composing radar→LiDAR→camera and comparing with the direct solve gives a rotation difference of 0.9°, the loop closing well inside the radar's bearing error. The translation is weakly constrained by seven points with degree-level bearing noise and should not be read as the physical offset; the rotation is the usable part. The other intrinsics file in red-rover (`camera_fisheye_notebooks.json`) gives the same answer to within 1° and 4 cm.
 
 ![Board in the camera frames with the radar detection projected under the co-located guess](../../figures/calib_board_in_images.png)
 
@@ -97,19 +97,19 @@ On real scenes (points at radar height, z = 0, since elevation is unusable): the
 
 
 ### Joint solve, LiDAR frame as world (`src/calib/joint.py`)
-One least-squares problem instead of pairwise chains: unknowns are the radar pose (yaw, tx, ty, tz; pitch and roll fixed at 0) and the camera pose (6) relative to the LiDAR, 10 in all; the 28 residuals are the seven shots' radar range (σ 2 cm), radar azimuth (σ 2°) and camera pixel (σ 20 px) against the LiDAR board point, radar elevation left out. Started from the pairwise answers, cost 95 → 31 (σ units).
+One least-squares problem instead of pairwise chains: unknowns are the radar pose (yaw, tx, ty, tz; pitch and roll fixed at 0) and the camera pose (6) relative to the LiDAR, 10 in all; the 28 residuals are the seven shots' radar range (σ 2 cm), radar azimuth (σ 2°) and camera pixel (σ 20 px) against the LiDAR board point, radar elevation left out. Started from the pairwise answers, cost 45 → 17 (σ units).
 
 | Quantity | Pairwise | Joint | 1σ (Jacobian) |
 |---|---|---|---|
-| radar→lidar yaw | +101.9° | +99.8° | ± 2.0° |
-| radar→lidar t (x, y) | (−0.11, +0.16) m | (−0.11, +0.04) m | ± (0.06, 0.02) m |
-| radar→lidar t_z | not estimated | −0.50 m | ± 0.21 m |
-| lidar→camera t | (−0.15, −0.54, +0.28) m (PnP) | (−0.15, −0.54, +0.28) m | ± (0.12, 0.12, 0.19) m |
-| radar range residual | 8.6 cm | 3.7 cm | — |
-| radar azimuth residual | 1.6° | 1.7° | — |
-| camera pixel residual | 29 px | 29 px | — |
+| radar→lidar yaw | +94.0° | +94.4° | ± 1.5° |
+| radar→lidar t (x, y) | (−0.14, −0.00) m | (−0.15, +0.02) m | ± (0.05, 0.02) m |
+| radar→lidar t_z | not estimated | −0.27 m | ± 0.15 m |
+| lidar→camera t | (+0.02, −0.41, +0.33) m (PnP) | (+0.03, −0.43, +0.19) m | ± (0.09, 0.09, 0.14) m |
+| radar range residual | 5.5 cm | 2.9 cm | — |
+| radar azimuth residual | 1.45° | 1.45° | — |
+| camera pixel residual | 23 px | 23 px | — |
 
-What changed and what did not: the range residual halves because t_z is now a free parameter and the board heights (−0.2 to −0.7 m in the LiDAR frame) make it observable through range, so the radar comes out 0.50 ± 0.21 m below the LiDAR; azimuth and pixel residuals stay where the sensors put them, since no amount of joint fitting beats a flat board's bearing noise; and the radar→camera transform is now composed from the two LiDAR-referenced poses, so the loop closes by construction instead of to 2.2°. The 1σ column is the real product: with seven flat-board shots, yaw is known to 2°, in-plane offsets to a few cm, heights to 20 cm. `RadarToLidar.load_joint()` and `RadarToCamera.load_joint()` apply it. The IMU is not in the solve because it observes no target; it enters through hand-eye on the orbit segments (rotation between LiDAR scans against integrated gyro), which is the next piece.
+What changed and what did not: the range residual halves because t_z is now a free parameter and the board heights (−0.2 to −0.7 m in the LiDAR frame) make it observable through range; the radar comes out 0.27 ± 0.15 m below the LiDAR, which agrees within 1σ with the rig's nominal 0.15–0.17 m (red-rover URDF comment and nrdk docstring); azimuth and pixel residuals stay where the sensors put them, since no amount of joint fitting beats a flat board's bearing noise; and the radar→camera transform is composed from the two LiDAR-referenced poses, so the loop closes by construction. The 1σ column is the real product: with seven flat-board shots, yaw is known to 1.5°, in-plane offsets to a few cm, heights to 15 cm. `RadarToLidar.load_joint()` and `RadarToCamera.load_joint()` apply it. The IMU is not in the solve because it observes no target; it enters through hand-eye on the orbit segments (rotation between LiDAR scans against integrated gyro), which is the next piece.
 
 ![Residuals per shot, pairwise vs joint](../../figures/calib_joint_residuals.png)
 
@@ -122,12 +122,12 @@ Quantitative, every method on the same seven 10/21 board placements; checks on s
 | Method | Unknowns | Radar range res. | Radar azimuth res. | Camera px res. | Loop closure | t_z radar→LiDAR | Check: room | Check: Scotty |
 |---|---|---|---|---|---|---|---|---|
 | None (co-located guess) | 0 | — | — | 143 px | — | — | — | — |
-| Kabsch radar→LiDAR, 2D | 3 | 8.5 cm (2D) | — | — | — | not estimated | 11 cm, 68 % | 22 cm, 60 % |
-| PnP radar→camera | 6 | — | — | 35 px | — | — | — | — |
-| PnP LiDAR→camera, composed | 6 (+3) | 8.5 cm | — | 29 px | 2.2° vs direct | — | — | — |
-| Joint, LiDAR frame, weighted | 10 | 3.7 cm | 1.7° | 29 px | by construction | −0.50 ± 0.21 m | 10 cm, 78 % | 29 cm, 61 % |
+| Kabsch radar→LiDAR, 2D | 3 | 8.1 cm (2D) | — | — | — | not estimated | 11 cm, 67 % | 58 cm, 49 % |
+| PnP radar→camera | 6 | — | — | 33 px | — | — | — | — |
+| PnP LiDAR→camera, composed | 6 (+3) | 8.1 cm | — | 23 px | 0.9° vs direct | — | — | — |
+| Joint, LiDAR frame, weighted | 10 | 2.9 cm | 1.45° | 23 px | by construction | −0.27 ± 0.15 m | 11 cm, 67 % | 58 cm, 49 % |
 
-1σ from the joint solve: yaw ±2.0°, t_x ±6 cm, t_y ±2 cm, t_z ±21 cm; camera rotation ±4°, translation ±12–19 cm. The residuals that do not move between rows (azimuth, pixels) are the flat board's limit, not the solver's.
+1σ from the joint solve: yaw ±1.5°, t_x ±5 cm, t_y ±2 cm, t_z ±15 cm; camera rotation ±3°, translation ±9–14 cm. The residuals that do not move between rows (azimuth, pixels) are the flat board's limit, not the solver's. The held-out checks accumulate 10–20 radar frames without poses while the rig walks (up to 25 cm of motion), against a single LiDAR scan, so they are a sanity check rather than an accuracy figure; the earlier 11 / 22 cm values were inflated by the smeared LiDAR geometry (every beam rotated by up to 22°), which put a LiDAR point near everything.
 
 Qualitative, the same second of the parking-lot frame under each calibration:
 
@@ -142,11 +142,11 @@ More examples, no calibration vs the joint solve, chosen because the effect is e
 *Radar points (SNR > 15 dB, drawn at radar height) on six scenes: 10/21 board at 40° right, 20° left and 26° right; 10/29 food truck, crosswalk, Scotty. `python -m src.calib.examples`.*
 
 ## Conclusion
-Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 cm on average and still holds on Session 2 data after the LiDAR swap. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 143 to 35 px, which is the radar's own bearing error; the rotation (about 7° about two axes) is usable, the translation is not yet trustworthy.
+Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.1 cm on average and still holds on Session 2 data after the LiDAR swap; the joint solve brings the range residual to 2.9 cm and puts the radar 0.27 ± 0.15 m below the LiDAR, consistent with the rig's nominal geometry. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 125 to 33 px, which is the radar's own bearing error; the rotation (5–7° about two axes) is usable, the translation is not yet trustworthy.
 
 ## Open items
 - Repeat with a corner reflector (apex visible in the image, strong point return) to bring both residuals down and pin the translation
-- Pitch, roll, tz for radar→LiDAR: from the board height in LiDAR plus a tape measure, or after X9. The joint solve's t_z = −0.50 ± 0.21 m disagrees with the rig's nominal values (red-rover URDF comment: radar 110 mm below the plate centre, ≈ 0.17 m below the LiDAR origin; nrdk docstring: ≈ 0.15 m), so treat it as unreliable until measured
+- Pitch, roll for radar→LiDAR: from the board height in LiDAR plus a tape measure, or after X9. t_z from the joint solve is −0.27 ± 0.15 m against the rig's nominal 0.15–0.17 m (red-rover URDF comment, nrdk docstring); a tape measure would pin it
 - Close the loop: compose radar→LiDAR with a LiDAR→camera estimate and compare with radar→camera
 
 ## B-roll to capture (for the 5-minute video)
