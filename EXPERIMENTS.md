@@ -178,6 +178,10 @@ The four calibrations on the same second of the parking-lot frame make the compa
 
 *The same radar points under (a) no calibration, (b) pairwise PnP, (c) composed Kabsch + PnP, (d) the joint solve.*
 
+![Three scenes, no calibration vs joint](figures/calib_examples_wide.png)
+
+*The clearest cases: a single board 40° to the right (the one radar return moves from the empty desk onto the board), a food truck, Scotty with the wall behind. No calibration above, the joint solve below.*
+
 ![Radar detections before and after PnP](figures/calib_radar_camera.png)
 
 *Radar detections projected into the camera before (blue x) and after (green o) PnP, crops around the board.*

@@ -135,6 +135,12 @@ Qualitative, the same second of the parking-lot frame under each calibration:
 
 *Radar points of one second (SNR > 12 dB, drawn at radar height) on `2026-10-29.15-49-40` t = 720 s: (a) no calibration, (b) pairwise PnP, (c) composed Kabsch + PnP, (d) joint solve. `python -m src.calib.compare data/raw/2026-10-29.15-49-40 --time 720 --accumulate 10`.*
 
+More examples, no calibration vs the joint solve, chosen because the effect is easy to see: a single board off-axis (the radar point moves from the empty desk onto the board), a food truck, a car at a crosswalk, and the wall behind Scotty.
+
+![Six scenes, no calibration vs joint](../../figures/calib_examples.png)
+
+*Radar points (SNR > 15 dB, drawn at radar height) on six scenes: 10/21 board at 40° right, 20° left and 26° right; 10/29 food truck, crosswalk, Scotty. `python -m src.calib.examples`.*
+
 ## Conclusion
 Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 cm on average and still holds on Session 2 data after the LiDAR swap. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 143 to 35 px, which is the radar's own bearing error; the rotation (about 7° about two axes) is usable, the translation is not yet trustworthy.
 
