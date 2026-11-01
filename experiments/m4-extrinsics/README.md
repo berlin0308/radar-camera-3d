@@ -146,7 +146,7 @@ Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 c
 
 ## Open items
 - Repeat with a corner reflector (apex visible in the image, strong point return) to bring both residuals down and pin the translation
-- Pitch, roll, tz for radar→LiDAR: from the board height in LiDAR plus a tape measure, or after X9
+- Pitch, roll, tz for radar→LiDAR: from the board height in LiDAR plus a tape measure, or after X9. The joint solve's t_z = −0.50 ± 0.21 m disagrees with the rig's nominal values (red-rover URDF comment: radar 110 mm below the plate centre, ≈ 0.17 m below the LiDAR origin; nrdk docstring: ≈ 0.15 m), so treat it as unreliable until measured
 - Close the loop: compose radar→LiDAR with a LiDAR→camera estimate and compare with radar→camera
 
 ## B-roll to capture (for the 5-minute video)
