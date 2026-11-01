@@ -115,6 +115,26 @@ What changed and what did not: the range residual halves because t_z is now a fr
 
 *Residuals per shot, pairwise start (grey) vs joint solve (blue); the band is the assumed 1σ. `python -m src.calib.joint`.*
 
+## Summary for the report
+
+Quantitative, every method on the same seven 10/21 board placements; checks on scenes not used in any fit (nearest above-ground LiDAR return to each transformed radar point, xy median; room = 10/21 `scene_room`, Scotty = 10/29 `16-22-36` t = 200 s after the LiDAR swap). "—" means the method does not produce that quantity.
+
+| Method | Unknowns | Radar range res. | Radar azimuth res. | Camera px res. | Loop closure | t_z radar→LiDAR | Check: room | Check: Scotty |
+|---|---|---|---|---|---|---|---|---|
+| None (co-located guess) | 0 | — | — | 143 px | — | — | — | — |
+| Kabsch radar→LiDAR, 2D | 3 | 8.5 cm (2D) | — | — | — | not estimated | 11 cm, 68 % | 22 cm, 60 % |
+| PnP radar→camera | 6 | — | — | 35 px | — | — | — | — |
+| PnP LiDAR→camera, composed | 6 (+3) | 8.5 cm | — | 29 px | 2.2° vs direct | — | — | — |
+| Joint, LiDAR frame, weighted | 10 | 3.7 cm | 1.7° | 29 px | by construction | −0.50 ± 0.21 m | 10 cm, 78 % | 29 cm, 61 % |
+
+1σ from the joint solve: yaw ±2.0°, t_x ±6 cm, t_y ±2 cm, t_z ±21 cm; camera rotation ±4°, translation ±12–19 cm. The residuals that do not move between rows (azimuth, pixels) are the flat board's limit, not the solver's.
+
+Qualitative, the same second of the parking-lot frame under each calibration:
+
+![Same Jeep frame, four calibrations](../../figures/calib_compare_jeep.png)
+
+*Radar points of one second (SNR > 12 dB, drawn at radar height) on `2026-10-29.15-49-40` t = 720 s: (a) no calibration, (b) pairwise PnP, (c) composed Kabsch + PnP, (d) joint solve. `python -m src.calib.compare data/raw/2026-10-29.15-49-40 --time 720 --accumulate 10`.*
+
 ## Conclusion
 Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.5 cm on average and still holds on Session 2 data after the LiDAR swap. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 143 to 35 px, which is the radar's own bearing error; the rotation (about 7° about two axes) is usable, the translation is not yet trustworthy.
 

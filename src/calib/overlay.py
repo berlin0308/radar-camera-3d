@@ -15,10 +15,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("trace"); ap.add_argument("--time", type=float, required=True, help="seconds into the camera video")
     ap.add_argument("--accumulate", type=int, default=10); ap.add_argument("--rmax", type=float, default=15)
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out", required=True); ap.add_argument("--joint", action="store_true", help="use the joint solve instead of the pairwise one")
     a = ap.parse_args()
 
-    tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); T = RadarToLidar.load()
+    tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); T = RadarToLidar.load_joint() if a.joint else RadarToLidar.load()
     cam_ts = np.fromfile(os.path.join(a.trace, "camera", "ts"), "<f8"); t0 = cam_ts[int(a.time * 30)]
     k0 = tr.index_at(t0); kl = lt.index_at(t0)
     pts = np.concatenate([detect(tr.frame(k), tr.params)[0] for k in range(k0, k0 + a.accumulate)])

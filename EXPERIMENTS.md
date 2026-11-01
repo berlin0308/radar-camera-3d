@@ -172,6 +172,12 @@ The principled version was then run: one least-squares problem in the LiDAR fram
 
 *Residuals per shot, pairwise start (grey) vs joint solve (blue), with the assumed 1σ band.*
 
+The four calibrations on the same second of the parking-lot frame make the comparison visible: no calibration puts every point on one line; the three real ones agree horizontally to within a degree and differ vertically where the translation is weakly constrained. The method-by-method table with the held-out checks is in the M4 report under "Summary for the report".
+
+![Same Jeep frame, four calibrations](figures/calib_compare_jeep.png)
+
+*The same radar points under (a) no calibration, (b) pairwise PnP, (c) composed Kabsch + PnP, (d) the joint solve.*
+
 ![Radar detections before and after PnP](figures/calib_radar_camera.png)
 
 *Radar detections projected into the camera before (blue x) and after (green o) PnP, crops around the board.*
