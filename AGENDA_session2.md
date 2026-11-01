@@ -1,5 +1,7 @@
 # Session 2 agenda · campus (capstone data first)
 
+The shot list for the next session is in `SESSIONS.md`; this file is the procedure.
+
 About 3 hours. The CP range/angle tests (M1) were done on 2026-10-21 and are not repeated.
 Every segment should have people or cars in view; the capstone uses them to test detection.
 

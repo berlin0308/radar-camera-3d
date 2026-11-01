@@ -17,7 +17,7 @@ What "done" looks like: a point cloud or mesh of the object in one fixed frame, 
 
 ## Where the data is
 
-On `nunga`: `/data/christineh/DATASET/radarhd/2026-10-29/<trace>/` (read-only). The README there explains the format. In this repo, `data/raw/<trace>` links to it.
+On `nunga`: `/data/christineh/DATASET/radarhd/2026-10-29/<trace>/` (read-only). The README there explains the format. In this repo, `data/raw/<trace>` links to it. Which session recorded what, and how good each trace is: `SESSIONS.md`.
 
 Each trace has four folders, all on one Unix-time clock:
 

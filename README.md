@@ -12,7 +12,8 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | Path | What |
 |---|---|
 | `shoot.sh`, `sync.sh`, `validate.sh`, `check_valid.py` | rig-day recording and data checks |
-| `AGENDA_session2.md` | rig-day procedure and shot list for the next sessions |
+| `SESSIONS.md` | one entry per rig session: rig state, traces, data quality, what each trace is for; the shot list for the next session on top |
+| `AGENDA_session2.md` | rig-day procedure (start-up, recording, shut-down, copying) |
 | `notes/shots.csv` | which trace is which shot |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |

@@ -22,7 +22,7 @@ On rig day 1 the LiDAR files were empty. Not the beam count: packets arrived (1,
 
 *Radar 50.0 ms (p99 55.9), LiDAR 100.0 ms, camera 33.3 ms, IMU 10.0 ms. Radar starts 2.3 s after the camera, LiDAR 1.3 s: align by timestamp, never by frame number.*
 
-Sessions so far: rig day 1 (10/19, two traces, no LiDAR); rig day 2 (10/21, 23 indoor traces in a 12 ft room: range, angle, calibration, room scene; 44 GB with day 1); Session 2 (10/29, five handheld campus traces with the 128-beam LiDAR, 61 GB: a parking lot with a full orbit of a Jeep, a crosswalk, two sculptures, a plaza; [log](notes/sessions/2026-10-29.md)). Session 3, off campus, is unscheduled. Data lives on nunga under `/data/christineh/DATASET/radarhd/`.
+Sessions so far: rig day 1 (10/19, two traces, no LiDAR); rig day 2 (10/21, 23 indoor traces in a 12 ft room: range, angle, calibration, room scene; 44 GB with day 1); Session 2 (10/29, five handheld campus traces with the 128-beam LiDAR, 61 GB: a parking lot with a full orbit of a Jeep, a crosswalk, two sculptures, a plaza; [log](notes/sessions/2026-10-29.md)). The next session, the last capture before 11/20, is listed in [SESSIONS.md](SESSIONS.md) together with each session's data quality. Data lives on nunga under `/data/christineh/DATASET/radarhd/`.
 
 ---
 
