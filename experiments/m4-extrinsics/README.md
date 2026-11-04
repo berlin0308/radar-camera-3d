@@ -175,6 +175,10 @@ So the bias was the board's geometry, not the antenna array, and the array is go
 
 The camera's origin in the LiDAR frame is (+0.03, −0.02, −0.14) m, 1σ about 1 cm and 0.3°: 14 cm below the LiDAR, where the 10/21 solve said 45 cm, from seven blob centroids of one kind of placement. The solves differ by 8.2°, so **the 10/21 LiDAR → camera solve was simply poor**; whether part of the change is physical cannot be told from here.
 
+![LiDAR points on the board under the two solves](../../figures/calib_lidar_on_board.png)
+
+*The same LiDAR points on the board, through the 10/21 solve (top) and this one (bottom). White crosses: the board corners in the image. The floor is cut out of the points, so they stop short of the bottom edge. `python -m src.calib.plane_solve --overlay`.*
+
 **Checks on data outside the solve.** LiDAR depth edges against image edges, 29 frames from 10/29 and 11/3 where the rig turns slowly, mean image gradient at the projected points (higher is better, `python -m src.calib.plane_solve --check`):
 
 | Perturbing the 11/3 solve | −3° / −20 cm | −1.5° / −10 cm | Solve | +1.5° / +10 cm | +3° / +20 cm |
@@ -211,6 +215,7 @@ Old rig, aimed at the board centre: a 2D rigid transform explains the seven boar
 python -m src.calib.plane_solve          # current rig: calib/extrinsics_joint.json + figures/calib_specular.png
 python -m src.calib.plane_solve --check  # leave-one-out, 10/21 angle shots, image edges
 python -m src.calib.plane_solve --snap   # redo calib/board_corners_2026-11-03.json from the hand-read corners
+python -m src.calib.plane_solve --overlay  # figures/calib_lidar_on_board.png
 ```
 The old rig (`calib/extrinsics_joint_2026-10-21.json`):
 ```bash

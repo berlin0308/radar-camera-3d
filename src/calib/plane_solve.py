@@ -18,6 +18,7 @@ bends long edges) from corners read by hand off the median frame. Robust loss, 8
     python -m src.calib.plane_solve               # writes calib/extrinsics_joint.json, figures/calib_specular.png
     python -m src.calib.plane_solve --snap        # redo calib/board_corners_2026-11-03.json from HAND_CORNERS
     python -m src.calib.plane_solve --check       # leave-one-out, 10/21 angle shots, image edges on other traces
+    python -m src.calib.plane_solve --overlay     # figures/calib_lidar_on_board.png, the 10/21 solve against this one
 
 Writes nothing but the json and the figure. The 10/21 solve stays in calib/extrinsics_joint_2026-10-21.json.
 """
@@ -277,6 +278,23 @@ def figure(rows, x0, tz, spec, centre, path):
     fig.savefig(path, dpi=150); print("saved", path)
 
 
+def overlay_figure(path="figures/calib_lidar_on_board.png", picks=("calib2_01", "calib2_03", "calib2_05", "calib2_07")):
+    """The LiDAR points on the board, projected on the image through the 10/21 solve and this one. Crops hold the board only, no people."""
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    cam, _, _ = load_cam(); old = json.load(open(joint_path(SHOTS_1021["calib_01"])))["lidar_to_camera"]; new = json.load(open(OUT))["lidar_to_camera"]; corners = json.load(open(CORNERS))["corners"]
+    T = RadarToLidar.load_joint(trace=SHOTS_1021["calib_01"]); fig, ax = plt.subplots(2, len(picks), figsize=(16.64, 7.2), constrained_layout=True)
+    for j, name in enumerate(picks):
+        d = os.path.join("data/raw", SHOTS[name]); rb = radar_board(d); seed = T(np.array([[-rb["r"] * np.sin(rb["az"]), rb["r"] * np.cos(rb["az"]), 0.0]]))[0]; pl = board_plane(d, seed[:2], rb["t0"], rb["t1"])
+        P = pl["P"]; m = (np.abs((P - pl["centroid"]) @ pl["normal"]) < 0.02) & (np.linalg.norm(P[:, :2] - pl["centroid"][:2], axis=1) < 0.75) & (P[:, 2] > pl["floor"] + 0.1); Q = P[m][::9]
+        img = cv2.cvtColor(median_frame(d), cv2.COLOR_BGR2RGB); c = np.array([q for q in corners[name] if q is not None]); x0, x1, y0, y1 = int(c[:, 0].min() - 90), int(c[:, 0].max() + 90), int(c[:, 1].min() - 70), int(c[:, 1].max() + 70)
+        x0, y0 = max(x0, 0), max(y0, 0); x1, y1 = min(x1, 1919), min(y1, 1079)
+        for i, (lc, col, tag) in enumerate([(old, "#E07B39", "10/21 solve"), (new, "#2C43B0", "11/3 solve")]):
+            uv = project_fisheye(Q @ np.array(lc["R"]).T + np.array(lc["t_m"]), cam); a = ax[i, j]; a.imshow(img); a.scatter(uv[:, 0], uv[:, 1], s=1.2, color=col, alpha=.8, linewidths=0)
+            a.scatter(c[:, 0], c[:, 1], marker="+", s=130, color="white", linewidths=1.6); a.set_xlim(x0, x1); a.set_ylim(y1, y0); a.axis("off"); a.set_title(f"{name}, {tag}", fontsize=12, loc="left")
+    fig.suptitle("LiDAR points on the board (dots), projected on the image; white crosses are the board corners found in the image", fontsize=13)
+    fig.savefig(path, dpi=110); print("saved", path)
+
+
 def check():
     """Leave-one-out on the 11/3 shots; 10/21 angle shots held out of a 10/21 solve; image edges on traces outside the solve."""
     cam, _, _ = load_cam(); rows = load_rows(); x0, tz = seed_x(); corners = json.load(open(CORNERS))["corners"]
@@ -345,5 +363,5 @@ def edges(cam, per_trace=14):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("--snap", action="store_true"); ap.add_argument("--check", action="store_true"); a = ap.parse_args()
-    snap_corners() if a.snap else check() if a.check else run()
+    ap = argparse.ArgumentParser(); ap.add_argument("--snap", action="store_true"); ap.add_argument("--check", action="store_true"); ap.add_argument("--overlay", action="store_true"); a = ap.parse_args()
+    snap_corners() if a.snap else check() if a.check else overlay_figure() if a.overlay else run()
