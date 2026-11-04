@@ -65,9 +65,11 @@ Quality. `roverd validate` passes on all 13; radar at most 4 invalid frames per 
 
 Calibration. The board shows in radar, LiDAR and image in all eight shots, so they became the current rig's solve (`python -m src.calib.plane_solve`). Radar → LiDAR: yaw +92.75° ± 0.71°, t = (−0.133, +0.012, −0.269 held) m, range residual 1.6 cm, azimuth 0.58°, modelling the board as a mirror. LiDAR → camera: 6.4 px on 29 corners, where the 10/21 solve gives 52 px. Correction: an earlier version of this entry said the LiDAR may have moved about 20 cm in the swap. It did not; that residual came from a board position pulled toward the floor. Details and the checks on other traces: [experiments/m4-extrinsics](experiments/m4-extrinsics/README.md).
 
-The orbit. −360° then +355° at 0.35 m/s, range to the pedestal 2.6 m median (1.9–5.0 m), the pedestal repeats between passes to 2 cm. Radar: 45,896 static points, 1 cm median to the LiDAR, 4,234 within 0.35 m of the pedestal axis. In range the radar sees the near side; across the beam it is still one blob. The spin holds too: 26° against the IMU over six turns, where the 10/29 spin slipped about 150°.
+The orbit. −360° then +355° at 0.35 m/s, range to the pedestal 2.6 m median (1.9–5.0 m), the pedestal repeats between passes to 2 cm. Radar: 68 % of 67,106 CFAR points pass the static filter, 1 cm median to the LiDAR, GRT Chamfer 0.49 / 0.64 m. In range the radar sees the near side; across the beam it is still one blob. The spin holds too: 26° against the IMU over six turns, where the 10/29 spin slipped about 150°.
 
-Used for: `experiments/m4-extrinsics`, the current rig's calibration.
+Every long trace went through the same chain as the Jeep and Scotty of 10/29: poses, Doppler check, accumulation with dense power maps, radar on camera and LiDAR, GRT dumps and comparisons. Per-trace numbers and commands are in the session log, figures in `figures/*_1103.png`. Indoors the CFAR points spread well outside the corridor walls, probably multipath.
+
+Used for: `experiments/m4-extrinsics`, the current rig's calibration; `experiments/obj-orbit-360`; `GRT.md` §10.
 
 Next time: after dark, static, same chalk marks by day and by night; the rig by tape.
 

@@ -163,6 +163,8 @@ The released eval files for I/Q-1M outdoor give about 0.6 m under the pinned fir
 
 Still open from this run: the CFAR-vs-GRT comparison proper (section 4) needs poses; the Chamfer here is per frame in the sensor frame. `occ2d`, `semseg` and `vel` checkpoints are not downloaded yet (same `rclone copy`, 5 minutes each).
 
+**On the 11/3 traces (2026-11-03).** The same checkpoint on four long traces, unchanged. Chamfer, GRT to LiDAR / LiDAR to GRT at p > 0.5: Scotty orbit 0.49 / 0.64 m (depth error median 1.40 m), paths and indoors 0.76 / 0.70 m (1.75 m), lawn 1.48 / 0.92 m (2.45 m, the label has a return in only 22 % of its columns), spin 0.55 / 1.17 m (2.80 m). The yaw sweep has no consistent residual on the walking traces (0°, -2.8°, +1.4°) and is flat on the spin (-5.6°). In a corridor (`17-11-37`, t = 335 s) CFAR points scatter outside the walls while GRT stays inside but stops at about 7 m. Figures: `figures/grt_vs_cfar_*_1103.png`, `figures/grt_align_*_1103.png`; dumps in `/data/berlin/grt/<trace>/`.
+
 ## 11. Commands (what exists today)
 
 ```bash

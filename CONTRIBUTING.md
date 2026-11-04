@@ -10,7 +10,7 @@ We walked around four things on 10/29 and went back to Scotty on 11/3. Pick one,
 |---|---|---|---|
 | Jeep (parked car) | `2026-10-29.15-49-40` | 11:00–17:00 | full orbit, best one to start with |
 | Walking to the Sky (metal pole) | `2026-10-29.16-12-38` | 5:30–9:40 | full orbit, rig often tilted up |
-| Scotty statue, **new, use this one** | `2026-11-03.17-01-12` | 0:30–2:45 | two passes in opposite directions at 2.6 m, 0.35 m/s, low sun; pedestal repeats between passes to 2 cm (`-13.20, -9.87` with the whole-trace poses); wall still behind it; balloons on metal stands beside it |
+| Scotty statue, **new, use this one** | `2026-11-03.17-01-12` | 0:30–2:45 | two passes in opposite directions at 2.6 m, 0.35 m/s, low sun; pedestal repeats between passes to 2 cm (`-13.07, -9.86` with the whole-trace poses); wall still behind it; balloons on metal stands beside it. Poses, points, dense power and GRT for it are already made; see the session log |
 | Scotty statue, old | `2026-10-29.16-22-36` | 2:59–3:45 | partial loop at 1–1.3 m; flat wall behind gives a ghost at 8–9 m |
 | Planters | `2026-10-29.16-22-36`, `2026-10-29.16-27-55` | ~2:00 and ~0:00, ~1:30 | passes, not full loops |
 
@@ -87,7 +87,7 @@ The 10/29 and 11/3 traces use this solve by default. Traces from before the LiDA
 
 ## GRT occupancy (learned radar), if you want a denser input
 
-`GRT.md` has the full story. Short version: the released GRT checkpoint runs on our traces unchanged and outputs a 64 × 128 × 64 occupancy grid **already in the LiDAR frame** (no calibration needed, just the LiDAR pose). Dumps for the Scotty and Jeep windows are in `/data/berlin/grt/<trace>/` (`occ3d_logit.npy` float16 `[N, el, az, rng]`, `occ3d_label.npy`, `ts.npy`).
+`GRT.md` has the full story. Short version: the released GRT checkpoint runs on our traces unchanged and outputs a 64 × 128 × 64 occupancy grid **already in the LiDAR frame** (no calibration needed, just the LiDAR pose). Dumps for the Scotty and Jeep windows of 10/29 and the four long traces of 11/3 are in `/data/berlin/grt/<trace>/` (`occ3d_logit.npy` float16 `[N, el, az, rng]`, `occ3d_label.npy`, `ts.npy`).
 
 ```python
 from src.grt.occupancy import GridGeometry

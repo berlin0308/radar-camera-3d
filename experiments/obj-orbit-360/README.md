@@ -64,6 +64,17 @@ One fix came out of this. The radar's elevation estimate was being used: `to_xyz
 
 *`16-22-36`: a, b camera at 4.0 and 2.2 m with the LiDAR scan (colour = height) and the radar detections (circles, red on the object); c the one scan at 2.2 m; d the orbit's 270 scans re-centred on the pedestal; e top view with the orbit's radar points; f range–azimuth power of the 4 m frame with the LiDAR of that instant. `python -m src.recon.closeup data/raw/2026-10-29.16-22-36 --centre -12.45 -2.60 --far 170 --near 174 --orbit 175 229 --split --out figures/closeup_scotty.png`.*
 
+## The Scotty orbit of 2026-11-03
+Two passes in opposite directions at 2.6 m, on the 11/3 calibration (`17-01-12`, 30-165 s). Static-filtered radar points sit 1 cm (median) from the LiDAR, 92 % within 0.5 m, coverage 71 %; the Doppler ridge agrees with the odometry on 90 % of moving frames, 8° in heading. Up close the LiDAR has 7,129 points on the statue from one scan at 2.15 m and the radar 33 of 199 points on it; 674 scans re-centred on the 0.39 m pedestal scatter 0.11 m. The radar over the whole orbit is still one blob at the pedestal: 6,670 of 7,421 static points within 0.35 m of it, and at 2.6 m the 14° beam is 63 cm across a 78 cm pedestal. In range it does read the near side. The other long traces of that session went through the same chain ([session log](../../notes/sessions/2026-11-03.md)).
+
+![Scotty up close, 11/3](../../figures/closeup_scotty_1103_1.png)
+
+*`python -m src.recon.closeup data/raw/2026-11-03.17-01-12 --centre -13.20 -9.87 --far 104 --near 95 --orbit 30 165 --pedestal-radius 0.39 --split --out figures/closeup_scotty_1103.png`.*
+
+![The whole orbit, 11/3](../../figures/closeup_scotty_1103_2.png)
+
+*The same command, second figure: 674 scans, the radar points of the orbit, the range-azimuth power of the far frame.*
+
 ## Results
 | Object | Size | Material | Radar points per frame on object | Extent error vs LiDAR | Mean echo (dB) | Visible from all sides? |
 |---|---|---|---|---|---|---|
