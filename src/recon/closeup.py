@@ -25,7 +25,7 @@ from ..radar import RadarTrace, detect
 from ..radar.pointcloud import to_xy, RANGE_OFFSET
 from ..radar.angle import AZIMUTHS
 from ..calib.lidar import LidarTrace
-from ..calib.transform import RadarToLidar, RadarToCamera
+from ..calib.transform import RadarToLidar, RadarToCamera, joint_path
 from ..calib.board_image import project_fisheye
 from .accumulate import height_above_ground
 
@@ -106,8 +106,8 @@ def main():
     name = os.path.basename(a.trace.rstrip("/")); c_guess = np.array(a.centre)
     tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); t0 = tr.ts[0]
     P = np.load(os.path.join(a.poses_dir, name, "radar.npz")); L = np.load(os.path.join(a.poses_dir, name, "lidar.npz"))
-    T_rl = RadarToLidar.load_joint(); C_rc = RadarToCamera.load_joint()
-    lc = json.load(open("calib/extrinsics_joint.json"))["lidar_to_camera"]; R_lc, t_lc = np.array(lc["R"]), np.array(lc["t_m"])
+    T_rl = RadarToLidar.load_joint(trace=a.trace); C_rc = RadarToCamera.load_joint(trace=a.trace)
+    lc = json.load(open(joint_path(a.trace)))["lidar_to_camera"]; R_lc, t_lc = np.array(lc["R"]), np.array(lc["t_m"])
     rec = np.load(os.path.join("data/recon", name, "radar_points.npz"))
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 

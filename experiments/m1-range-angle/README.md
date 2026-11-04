@@ -56,10 +56,10 @@ Fit: radar = 0.993 × tape + 0.183 m.
 
 
 ## Conclusion
-Range is linear to within ±1.2 cm after a constant +0.18 m offset. Azimuth has the right sign and is within ~1° at 40° right, but reads 6 to 9° too wide at ±20°. Channel phase errors are too small to explain it, so placement or the board's size is the likely cause.
+Range is linear to within ±1.2 cm after a constant +0.18 m offset. Azimuth has the right sign and is within ~1° at 40° right, but reads 6 to 9° too wide at ±20°. Channel phase errors are too small to explain it, so placement or the board's size is the likely cause. **Settled on 2026-11-03:** the radar reads the board's specular point, not its centre; aimed at the specular point these shots are within 1.5°, 0.75° on average, with the calibration solved on other shots ([m4-extrinsics](../m4-extrinsics/README.md)).
 
 ## Open items
-- Repeat ±20° with a corner reflector and a phone photo per placement
+- ~~Repeat ±20° with a corner reflector and a phone photo per placement~~ not needed: explained by the board's geometry (2026-11-03)
 - Outdoor ranges beyond 3.7 m (10 to 15 m)
 
 ## B-roll to capture (for the 5-minute video)

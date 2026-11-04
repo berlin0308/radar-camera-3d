@@ -19,7 +19,7 @@ def main():
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     ts_dump = np.load(os.path.join(a.dump, "ts.npy")); logit = np.load(os.path.join(a.dump, "occ3d_logit.npy"), mmap_mode="r"); lab = np.load(os.path.join(a.dump, "occ3d_label.npy"), mmap_mode="r")
-    tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); T = RadarToLidar.load_joint(); G = GridGeometry(a.trace)
+    tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); T = RadarToLidar.load_joint(trace=a.trace); G = GridGeometry(a.trace)
     cam_ts = np.fromfile(os.path.join(a.trace, "camera", "ts"), "<f8"); kc = int(a.time * 30); t0 = cam_ts[kc]
     kd = int(np.argmin(np.abs(ts_dump - t0))); kr = tr.index_at(t0); kl = lt.index_at(t0)
     print(f"camera t={a.time:.0f}s -> dump frame {kd} ({ts_dump[kd]-t0:+.2f}s), radar {kr}, lidar {kl}")

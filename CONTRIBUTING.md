@@ -64,7 +64,7 @@ What you need to know about these points:
 
 ## Calibration (done, use it)
 
-Radar ↔ LiDAR ↔ camera extrinsics exist, from the 10/21 board shots, solved jointly with the LiDAR frame as world. Numbers and figures: `experiments/m4-extrinsics/`.
+Radar ↔ LiDAR ↔ camera extrinsics exist, from the 11/3 board shots on the current rig, with the LiDAR frame as world. Numbers and figures: `experiments/m4-extrinsics/`.
 
 ```python
 from src.calib.transform import RadarToLidar, RadarToCamera
@@ -74,7 +74,7 @@ C = RadarToCamera.load_joint()
 uv = C.pixels(to_xyz(pts))          # radar points -> pixels, 1920x1080 fisheye frame
 ```
 
-What to expect: yaw good to ±1.5°, in-plane offset ±5 cm, height ±15 cm, camera ±3° / ±10–14 cm. Radar pitch and roll are assumed 0. `z` of radar points is still unusable, so set it to 0 (or take height from LiDAR) before projecting.
+What to expect: yaw good to ±0.7°, in-plane offset ±2 cm, camera ±0.3° / ±1 cm (6 px), height not measured (held at −0.27 m until someone tapes it). All of it was tested only inside 3 m. Radar pitch and roll are assumed 0. `z` of radar points is still unusable, so set it to 0 (or take height from LiDAR) before projecting.
 
 Look at it before trusting it:
 
@@ -83,7 +83,7 @@ python -m src.calib.overlay  data/raw/<trace> --time <s> --accumulate 10 --joint
 python -m src.calib.examples --wide --pick 0 3 5 --out x.png                                    # radar points on photos, none vs calibrated
 ```
 
-The 10/29 and 11/3 traces were recorded after a LiDAR swap (OS-0-64 → OS-0-128). The transform holds there only to ~20–30 cm, and the 11/3 board shots suggest the LiDAR moved about 20 cm (not yet confirmed; a tape measure will settle it). If your reconstruction looks offset, that is the first suspect. A new solve will replace `calib/extrinsics_joint.json`; nothing else in the API changes.
+The 10/29 and 11/3 traces use this solve by default. Traces from before the LiDAR swap (10/19, 10/21) have their own: `RadarToLidar.load_joint(trace="2026-10-21.15-58-19")`. Anything you computed before 2026-11-03 used the old solve: the radar part moves by about 2° of yaw and the camera part by about 8° and 30 cm, so redo camera projections.
 
 ## GRT occupancy (learned radar), if you want a denser input
 

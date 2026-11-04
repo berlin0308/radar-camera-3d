@@ -32,7 +32,7 @@ def main():
     ap.add_argument("--frames", type=float, nargs=2, default=(750, 965)); ap.add_argument("--stride", type=int, default=5)
     ap.add_argument("--poses-dir", default="data/poses"); ap.add_argument("--out", required=True)
     a = ap.parse_args()
-    name = os.path.basename(a.trace.rstrip("/")); P = np.load(os.path.join(a.poses_dir, name, "radar.npz")); tr = RadarTrace(a.trace); R_rl = RadarToLidar.load_joint().R
+    name = os.path.basename(a.trace.rstrip("/")); P = np.load(os.path.join(a.poses_dir, name, "radar.npz")); tr = RadarTrace(a.trace); R_rl = RadarToLidar.load_joint(trace=a.trace).R
     t0 = tr.ts[0] + a.start; t1 = t0 + a.seconds if a.seconds else np.inf
     sel = np.nonzero((P["t"] >= t0) & (P["t"] < t1))[0]; v_r = pose_velocity_radar(P, R_rl)
     vb = tr.params.velocities; v_res = tr.params.velocity_resolution

@@ -13,6 +13,15 @@ import json, os
 import numpy as np
 
 DEFAULT = os.path.join(os.path.dirname(__file__), "..", "..", "calib", "extrinsics_radar_lidar.json")
+SWAP_DATE = "2026-10-29"       # OS-0-64 -> OS-0-128; each rig has its own joint solve
+
+
+def joint_path(trace=None):
+    """The joint solve for a trace's rig: the current one by default, the 10/21 one for traces before the LiDAR swap."""
+    name = "extrinsics_joint.json"
+    if trace is not None and os.path.basename(str(trace).rstrip("/"))[:10] < SWAP_DATE:
+        name = "extrinsics_joint_2026-10-21.json"
+    return os.path.join(os.path.dirname(DEFAULT), name)
 
 
 class RadarToLidar:
@@ -28,9 +37,9 @@ class RadarToLidar:
         return cls(j["yaw_deg"], j["t_xy_m"], j["t_z_m"] or 0.0)
 
     @classmethod
-    def load_joint(cls, path=os.path.join(os.path.dirname(DEFAULT), "extrinsics_joint.json")):
-        """The joint solve (LiDAR as world): same yaw and xy within error, plus a z offset."""
-        j = json.load(open(path))["radar_to_lidar"]
+    def load_joint(cls, path=None, trace=None):
+        """The joint solve (LiDAR as world), for the rig of `trace` (default: the current rig)."""
+        j = json.load(open(path or joint_path(trace)))["radar_to_lidar"]
         return cls(j["yaw_deg"], j["t_m"][:2], j["t_m"][2])
 
     def __call__(self, xyz):
@@ -61,9 +70,9 @@ class RadarToCamera:
         return cls(j["R"], j["t_m"], cam)
 
     @classmethod
-    def load_joint(cls, path=os.path.join(os.path.dirname(DEFAULT_CAM), "extrinsics_joint.json")):
-        """Radar -> camera composed from the joint solve (radar -> LiDAR -> camera)."""
-        j = json.load(open(path))["radar_to_camera"]
+    def load_joint(cls, path=None, trace=None):
+        """Radar -> camera composed from the joint solve (radar -> LiDAR -> camera), for the rig of `trace`."""
+        path = path or joint_path(trace); j = json.load(open(path))["radar_to_camera"]
         cam = json.load(open(os.path.join(os.path.dirname(path), os.path.basename(j["intrinsics"]))))
         return cls(j["R"], j["t_m"], cam)
 

@@ -68,7 +68,7 @@ def main():
     ap.add_argument("--lidar-stride", type=int, default=5); ap.add_argument("--dense", action="store_true")
     a = ap.parse_args()
     name = os.path.basename(a.trace.rstrip("/")); P = np.load(os.path.join(a.poses_dir, name, "radar.npz")); L = np.load(os.path.join(a.poses_dir, name, "lidar.npz"))
-    tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); T_rl = RadarToLidar.load_joint()
+    tr = RadarTrace(a.trace); lt = LidarTrace(a.trace); T_rl = RadarToLidar.load_joint(trace=a.trace)
     t0 = tr.ts[0] + a.start; t1 = t0 + a.seconds if a.seconds else np.inf
     sel = (P["t"] >= t0) & (P["t"] < t1); idx, T_w, t_w = P["index"][sel], P["T"][sel], P["t"][sel]
     # sensor velocity in the world frame from the poses: finite difference, median over 21 frames (1 s) to kill

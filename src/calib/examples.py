@@ -47,7 +47,7 @@ def main():
     else:
         fig, axes = plt.subplots(len(scenes), 2, figsize=(16.64, 4.7 * len(scenes)), constrained_layout=True); rows = axes
     for row, (label, trace, t_sec, n, snr) in zip(rows, scenes):
-        img, pts, xyz, t_used = frame_and_points(trace, t_sec, n, snr)
+        img, pts, xyz, t_used = frame_and_points(trace, t_sec, n, snr); C = RadarToCamera.load_joint(trace=trace)
         for ax, uv, title in [(row[0], project_fisheye(radar_to_cam_axes(xyz), cam), "no calibration"), (row[1], C.pixels(xyz), "joint calibration")]:
             uv = uv / 2.0                                                         # frame is scaled to 960 wide
             m = (uv[:, 0] >= 0) & (uv[:, 0] < 960) & (uv[:, 1] >= 0) & (uv[:, 1] < 540)

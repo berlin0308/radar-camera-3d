@@ -11,14 +11,14 @@ from .board_image import project_fisheye, radar_to_cam_axes
 from .transform import RadarToCamera, RadarToLidar
 
 
-def calibrations():
+def calibrations(trace=None):
     """name -> function (N,3) radar xyz -> (N,2) pixels."""
     cam = RadarToCamera.load().cam
     direct = RadarToCamera.load()
     lc = json.load(open("calib/extrinsics_lidar_camera.json")); T = RadarToLidar.load()
     R_lc, t_lc = np.array(lc["R"]), np.array(lc["t_m"])
     composed = RadarToCamera(R_lc @ T.R, R_lc @ T.t + t_lc, cam)
-    joint = RadarToCamera.load_joint()
+    joint = RadarToCamera.load_joint(trace=trace)
     return [("a · none: camera at the radar, axes aligned", lambda x: project_fisheye(radar_to_cam_axes(x), cam)),
             ("b · pairwise PnP radar→camera (35 px)", direct.pixels),
             ("c · composed: Kabsch radar→LiDAR, PnP LiDAR→camera", composed.pixels),
@@ -39,7 +39,7 @@ def main():
     pts = np.concatenate([detect(tr.frame(k), tr.params)[0] for k in range(k0, k0 + a.accumulate)]); pts = pts[pts["snr"] > a.snr]
     xyz = to_xyz(pts); xyz[:, 2] = 0.0
     fig, axes = plt.subplots(2, 2, figsize=(16.64, 9.6), constrained_layout=True)
-    for ax, (title, f) in zip(axes.flat, calibrations()):
+    for ax, (title, f) in zip(axes.flat, calibrations(a.trace)):
         uv = f(xyz); m = (uv[:, 0] >= 0) & (uv[:, 0] < 1920) & (uv[:, 1] >= 0) & (uv[:, 1] < 1080)
         ax.imshow(img); sc = ax.scatter(uv[m, 0], uv[m, 1], s=40, c=pts["r"][m], cmap="turbo", vmin=0, vmax=20, edgecolors="white", linewidths=.5)
         ax.set_xlim(0, 1920); ax.set_ylim(1080, 0); ax.axis("off"); ax.set_title(title, fontsize=13)

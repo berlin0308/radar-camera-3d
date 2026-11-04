@@ -18,8 +18,8 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `notes/sessions/` | full log per session, and the script behind each session's numbers |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
-| `src/calib/` | extrinsics from the 10/21 board shots: `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP), `joint` (one weighted solve, LiDAR frame); `RadarToLidar` / `RadarToCamera` to apply them; `overlay`, `compare`, `examples` to look at the result |
-| `calib/` | `extrinsics_joint.json` (use this), the pairwise `extrinsics_radar_lidar.json` / `extrinsics_radar_camera.json` / `extrinsics_lidar_camera.json`, `board_pixels.json`, fisheye intrinsics from red-rover |
+| `src/calib/` | extrinsics: `plane_solve` (current rig, 11/3 board shots, radar on the board's specular point); for the 10/21 rig `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP), `joint` (one weighted solve); `RadarToLidar` / `RadarToCamera` to apply them; `overlay`, `compare`, `examples` to look at the result |
+| `calib/` | `extrinsics_joint.json` (current rig, use this), `extrinsics_joint_2026-10-21.json` (the rig before the LiDAR swap, picked with `load_joint(trace=...)`), `board_corners_2026-11-03.json`, the pairwise `extrinsics_radar_lidar.json` / `extrinsics_radar_camera.json` / `extrinsics_lidar_camera.json`, `board_pixels.json`, fisheye intrinsics from red-rover |
 | `src/grt/` | the learned model next to the classical chain: `infer` runs a released GRT checkpoint on a trace (nrdk env, see `GRT.md`), `occupancy` turns grid cells into xyz with the real Ouster angles, `align` scores GRT against our LiDAR as first-return depth, `compare_frame` draws camera / CFAR / GRT / label for one instant |
 | `src/recon/` | from frames to a world frame: `poses` (KISS-ICP on the Ouster scans, gyro-deskewed, poses at radar times), `ego_check` (radar Doppler of the static world against the odometry), `accumulate` (CFAR points with the static-world filter into the world frame next to the LiDAR built the same way, ground removed; `--dense` exports the range-azimuth power of every frame); `closeup` (one object up close: camera, LiDAR and radar, every scan re-centred on its pedestal) |
 | `src/radar/ego.py` | ego-velocity from Doppler and the static-world consistency test (static targets must show v = −v_sensor · u(az); approaching = negative on our Doppler axis) |
@@ -47,15 +47,15 @@ python -m src.radar data/raw/2026-10-29.15-49-40 --time 720 --accumulate 20  # p
 
 ## Calibration (extrinsics)
 
-Radar, LiDAR and camera are rigid on the rig; the fixed transforms between them come from the eight board placements of 2026-10-21 (`calib_01`…`08`, 10 s each). Full method, numbers and figures: [experiments/m4-extrinsics](experiments/m4-extrinsics/README.md).
+Radar, LiDAR and camera are rigid on the rig; the fixed transforms between them come from the eight board placements of 2026-11-03 on the current rig (OS-0-128, every trace from 10/29 on). Traces before the 10/29 LiDAR swap have their own solve. Full method, numbers and figures: [experiments/m4-extrinsics](experiments/m4-extrinsics/README.md).
 
 | Transform | Method | Result | Error |
 |---|---|---|---|
-| radar → LiDAR | joint solve (LiDAR as world, range / azimuth / pixel residuals weighted by their noise) | yaw +94.4°, t = (−0.15, +0.02, −0.27) m | ±1.5°, ±(5, 2, 15) cm; range residual 2.9 cm |
-| LiDAR → camera | same solve | `calib/extrinsics_joint.json` | ±3°, ±10–14 cm; 23 px |
+| radar → LiDAR | LiDAR plane of the board; radar range and azimuth on its specular point | yaw +92.75°, t = (−0.133, +0.012, −0.269) m | ±0.71°, ±(0.8 forward, 2.0 sideways) cm; range 1.6 cm, azimuth 0.58°; height held from 10/21, not measured |
+| LiDAR → camera | PnP on the board's corners | `calib/extrinsics_joint.json` | ±0.3°, ±1 cm; 6.4 px |
 | radar → camera | composed from the two above | `calib/extrinsics_joint.json` | consistent by construction |
 
-Pairwise solves (Kabsch 2D, PnP) are kept in `calib/` for comparison; the joint one is the one to use. Pitch and roll of the radar are fixed at 0 (unobservable without radar elevation). Limits come from the flat board, not the solver; a corner reflector session would bring them down. **These numbers are from the rig before the 10/29 LiDAR swap.** The board shots of 2026-11-03 leave +18.5 cm of range residual under this transform, so on traces from 10/29 on expect up to 30 cm; a solve on the current rig is pending ([session log](notes/sessions/2026-11-03.md)).
+Radar pitch and roll are fixed at 0 (unobservable without radar elevation). Nothing yet tests the solve beyond 3 m. `load_joint(trace=...)` picks the solve for a trace's rig. The pairwise solves in `calib/` belong to the 10/21 rig and are kept for comparison.
 
 ```python
 from src.calib.transform import RadarToLidar, RadarToCamera

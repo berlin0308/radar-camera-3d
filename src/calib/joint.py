@@ -14,6 +14,8 @@ and unobservable without elevation); camera rotation vector and translation (6).
 Parameter 1-sigma from the Jacobian at the solution.
 
     python -m src.calib.joint
+
+This is the solve for the rig of 10/21 (OS-0-64). The current rig is in src.calib.plane_solve.
 """
 import json, os
 
@@ -65,7 +67,7 @@ def residuals(x, rows, cam):
     return np.array(out)
 
 
-def run(out_json="calib/extrinsics_joint.json", fig_path="figures/calib_joint_residuals.png"):
+def run(out_json="calib/extrinsics_joint_2026-10-21.json", fig_path="figures/calib_joint_residuals.png"):
     rows = gather(); cam, K, D = load_cam()
     # initial guess from the pairwise solves: radar<-lidar is the inverse of radar->lidar; camera<-lidar from its PnP
     T_rl = RadarToLidar.load(); lc = json.load(open("calib/extrinsics_lidar_camera.json"))

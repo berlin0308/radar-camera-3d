@@ -114,7 +114,7 @@ Azimuth is right in sign and nearly right at the edge but biased in the middle: 
 
 *Angle spectra at the target range for the five placements, and radar vs placed angle.*
 
-The target was a ~60 cm flat board, not a corner reflector. At 4 mm wavelength a board is a mirror: it returns energy only when facing the radar, and a small tilt shifts the apparent centre by a few degrees at 8 ft. The failed calibration placements (03, 05) and the dead 40° left shot all fit. Repeat ±20° with a corner reflector and a photo behind the rig per placement.
+The target was a ~60 cm flat board, not a corner reflector. At 4 mm wavelength a board is a mirror: it returns energy only when facing the radar, and a small tilt shifts the apparent centre by a few degrees at 8 ft. The failed calibration placements (03, 05) and the dead 40° left shot all fit. On 11/3 this was settled: the radar reads the board's specular point, the foot of the perpendicular from the radar onto the board's plane, which the LiDAR measures. Aimed there, these angle shots are within 1.5° (mean 0.75°, against 4.05° aimed at the board's centre) under a calibration solved on other shots. The bias is the board's geometry, not the array ([m4-extrinsics](experiments/m4-extrinsics/README.md)).
 
 ![Board vs corner](notes/fig/rd2/f14_plate_vs_corner.png)
 
@@ -152,7 +152,7 @@ The radar counterpart of the camera noise calibration. A camera counts photons, 
 
 ## 6. Extrinsics: radar to LiDAR, radar to camera
 
-*[m4-extrinsics](experiments/m4-extrinsics/README.md) · radar→LiDAR solved in 2D, radar→camera by PnP (11/1, both preliminary, on the rig before the LiDAR swap); board shots on the current rig recorded 11/3, not yet solved*
+*[m4-extrinsics](experiments/m4-extrinsics/README.md) · current rig solved 11/3 (radar→LiDAR 1.6 cm, 0.58°; LiDAR→camera 6.4 px); radar height pending a tape measure. The text below down to the figures is the old rig (11/1)*
 
 Eight board placements over 0.5–4 m, ±25° azimuth. The radar sees the board as its strongest CFAR return (range minus the 0.183 m offset); in the LiDAR scan the board is the largest upright cluster near where a prior (LiDAR −x forward) predicts it, re-picked within 0.5 m after a first solve, because a global search in a 12 ft room kept picking furniture at the same range. A 2D rigid fit by Kabsch over seven placements (calib_06 at 0.25 m sits inside the radar leakage zone) gives yaw +94.0° and t = (−0.14, 0.00) m with a mean residual of 8.1 cm, max 14 cm; the residual is the radar's azimuth error on a flat board, not range. Pitch, roll and tz are not estimated, since radar elevation is unusable. On data not used in the fit the transform holds: 11 cm median distance to the nearest LiDAR return in the static 10/21 room scene; 58 cm on the walking Scotty segment of 10/29 after the LiDAR swap, where ten radar frames are overlaid without poses, so that number is a sanity check and not an accuracy figure. (An earlier version of these numbers, 11 and 22 cm, was inflated by a sign error in the LiDAR beam-azimuth offsets that smeared every scan; the geometry was checked against roverd's own lookup table and fixed on 11/1.)
 
@@ -189,6 +189,12 @@ The four calibrations on the same second of the parking-lot frame make the compa
 ![Radar points on the Jeep frame](figures/calib_project_jeep.png)
 
 *What the transform is for: radar points of one second on the parking-lot frame, co-located guess (left) and calibrated (right); points are drawn at radar height because elevation is unusable.*
+
+**The current rig (11/3).** Eight placements of a 0.925 m board, 1.5–3 m, ±41°, two heights. Treating the board as the mirror it is changes the result: the radar reads the specular point, computed from the LiDAR's fit of the board's plane, and the azimuth residual falls from 2.89° to 0.58° (leave-one-out 3.37° to 0.66°), range 1.6 cm, yaw +92.75° ± 0.71°, t = (−0.13, +0.01, −0.27 held) m. Height is held because these shots barely constrain it. LiDAR→camera on the board's corners reaches 6.4 px (leave-one-shot-out 7.9 px), against 52 px for the old solve on the same corners. On 29 frames outside the solve, LiDAR depth edges score best at or next to this solution on all six axes. The swap itself moved little: the same model on the old rig agrees to 1.4 cm along the forward axis, 7 cm sideways and 0.8° of yaw. A corner reflector is no longer needed to make the calibration work; it would only test it beyond 3 m.
+
+![Specular point](figures/calib_specular.png)
+
+*The radar reads the specular point of a flat board, not its centre. `python -m src.calib.plane_solve`.*
 
 ---
 
