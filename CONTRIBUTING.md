@@ -4,20 +4,21 @@ Thanks for helping. The goal for you: **rebuild objects in 3D from the walk-arou
 
 ## The task
 
-We walked around four things on 10/29 with the rig. Pick one, get a 3D model of it, then try the others.
+We walked around four things on 10/29 and went back to Scotty on 11/3. Pick one, get a 3D model of it, then try the others.
 
 | Object | Trace | Time in trace | Notes |
 |---|---|---|---|
 | Jeep (parked car) | `2026-10-29.15-49-40` | 11:00–17:00 | full orbit, best one to start with |
 | Walking to the Sky (metal pole) | `2026-10-29.16-12-38` | 5:30–9:40 | full orbit, rig often tilted up |
-| Scotty statue | `2026-10-29.16-22-36` | 2:59–3:45 | partial loop; flat wall behind gives a ghost at 8–9 m |
+| Scotty statue, **new, use this one** | `2026-11-03.17-01-12` | 0:30–2:45 | two passes in opposite directions at 2.6 m, 0.35 m/s, low sun; pedestal repeats between passes to 2 cm (`-13.20, -9.87` with the whole-trace poses); wall still behind it; balloons on metal stands beside it |
+| Scotty statue, old | `2026-10-29.16-22-36` | 2:59–3:45 | partial loop at 1–1.3 m; flat wall behind gives a ghost at 8–9 m |
 | Planters | `2026-10-29.16-22-36`, `2026-10-29.16-27-55` | ~2:00 and ~0:00, ~1:30 | passes, not full loops |
 
 What "done" looks like: a point cloud or mesh of the object in one fixed frame, a picture of it, and a short write-up in `experiments/obj-orbit-360/README.md` (question, method, numbers, figures, what did not work). Radar-only, LiDAR-only, or fused: your call. A web viewer would be great but is optional.
 
 ## Where the data is
 
-On `nunga`: `/data/christineh/DATASET/radarhd/2026-10-29/<trace>/` (read-only). The README there explains the format. In this repo, `data/raw/<trace>` links to it. Which session recorded what, and how good each trace is: `SESSIONS.md`.
+On `nunga`: `/data/christineh/DATASET/radarhd/2026-10-29/<trace>/` and `.../transfer_2026-11-03/<trace>/` (read-only). The README in `2026-10-29/` explains the format; 11/3 has the same format and config. In this repo, `data/raw/<trace>` links to it. Which session recorded what, and how good each trace is: `SESSIONS.md`.
 
 Each trace has four folders, all on one Unix-time clock:
 
@@ -82,7 +83,7 @@ python -m src.calib.overlay  data/raw/<trace> --time <s> --accumulate 10 --joint
 python -m src.calib.examples --wide --pick 0 3 5 --out x.png                                    # radar points on photos, none vs calibrated
 ```
 
-The 10/29 traces were recorded after a LiDAR swap (OS-0-64 → OS-0-128). The transform still holds there to ~20–30 cm; if your reconstruction looks offset, that is the first suspect.
+The 10/29 and 11/3 traces were recorded after a LiDAR swap (OS-0-64 → OS-0-128). The transform holds there only to ~20–30 cm, and the 11/3 board shots suggest the LiDAR moved about 20 cm (not yet confirmed; a tape measure will settle it). If your reconstruction looks offset, that is the first suspect. A new solve will replace `calib/extrinsics_joint.json`; nothing else in the API changes.
 
 ## GRT occupancy (learned radar), if you want a denser input
 

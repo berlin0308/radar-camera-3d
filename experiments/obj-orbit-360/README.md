@@ -1,6 +1,6 @@
 # 360° orbits: how object size and material change what the radar sees
 
-**Status:** Data partly recorded (2026-10-29); poses, static-world filter and accumulation working (2026-11-01); per-object numbers pending (Yining)
+**Status:** Data partly recorded (2026-10-29, 2026-11-03); poses, static-world filter and accumulation working (2026-11-01); per-object numbers pending (Yining)
 
 ## Question
 For a car, a small metal object, a tree or sculpture and a building wall: how much of each object does the radar capture, compared with the 128-beam LiDAR?
@@ -9,7 +9,7 @@ For a car, a small metal object, a tree or sculpture and a building wall: how mu
 Orbit each object once (radius 2 to 5 m, 0.5 to 1 m/s, start and stop at a marked spot), camera pointed at the object. Poses from LiDAR SLAM; radar points accumulated in the object frame.
 
 ## Data
-Recorded 2026-10-29 (see [session log](../../notes/sessions/2026-10-29.md)): car = `2026-10-29.15-49-40` 11-17 min; sculpture (thin metal pole) = `2026-10-29.16-12-38` 5:30-9:40; small metal (Scotty) = `2026-10-29.16-22-36` 2:59-3:45. Still to record: tree, GHC wall, spin in place.
+Recorded 2026-10-29 (see [session log](../../notes/sessions/2026-10-29.md)): car = `2026-10-29.15-49-40` 11-17 min; sculpture (thin metal pole) = `2026-10-29.16-12-38` 5:30-9:40; small metal (Scotty) = `2026-10-29.16-22-36` 2:59-3:45. Small metal again, better: `2026-11-03.17-01-12` 30-165 s, two passes at 2.6 m ([session log](../../notes/sessions/2026-11-03.md)). Spin in place: `2026-11-03.17-18-46`. Still to record: tree, GHC wall, a small object with nothing behind it.
 
 ## Poses (2026-11-01)
 KISS-ICP (LiDAR-only odometry, no loop closure, `src/recon/poses.py`) on the OS-0-128 scans, 25 scans/s on CPU. Three things had to be right before the trajectory held together. The LiDAR geometry: with the beam-azimuth sign flipped (the bug fixed on 11/1) the odometry diverged within a minute. The deskew: KISS-ICP's own constant-velocity deskew feeds its per-scan jitter back into the next scan on this handheld rig and doubled the apparent path (685–705 s: 28 m with it, 14 m without); each scan is now un-skewed with the IMU's z gyro instead (column j was measured at ts + j/2048 × 0.1 s, rotated back to mid-scan), which on the 98°/s swing at 720 s leaves 4° against the gyro where the built-in deskew leaves +98° and no deskew −208°. The map: with KISS-ICP's defaults (50 m, 0.5 m voxels) the sparse far returns of the open parking lot steer the registration during that same swing (−267° even with gyro deskew); 30 m / 0.3 m brings it to 15°.
@@ -90,7 +90,7 @@ One fix came out of this. The radar's elevation estimate was being used: `to_xyz
 Pending. Expected: the car is bright from every side, the small metal object is smeared by the ~14° beam, the tree is weak, the wall only lights up when faced squarely.
 
 ## Open items
-- Odometry yaw still slips ~150° over the Jeep window while standing still and spinning (785–890 s); a loop closure or the IMU as a yaw prior would fix it. The orbit itself is unaffected.
+- Odometry yaw still slips ~150° over the Jeep window while standing still and spinning (785–890 s); a loop closure or the IMU as a yaw prior would fix it. The orbit itself is unaffected. A six-turn spin in a structure-rich atrium (`2026-11-03.17-18-46`) stays within 26°, so the open lot may be the cause rather than the spin.
 - Decide how to segment each object in the LiDAR layer (the Jeep is the cluster at the orbit centre)
 - The LiDAR cut-out of an object is only as sharp as the odometry's yaw; the pedestal fit fixes the position, not the rotation. Registering the scans on the object itself (ICP on the cut-out) is the next step for a crisp model.
 - The static filter's cost in coverage (81 → 69 % on the Jeep): a Doppler-only ego estimate per frame, or a shorter velocity smoothing, might keep more of the edge-of-view points

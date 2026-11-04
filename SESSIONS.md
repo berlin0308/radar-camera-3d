@@ -2,43 +2,74 @@
 
 One entry per capture day: the rig as it was, what was recorded, how good the data is, what it has been used for, and what the next session has to fix. The shot list for the next session is at the top. The recording procedure (start-up, shut-down, copying) is in `AGENDA_session2.md`, trace labels in `notes/shots.csv`, results in `EXPERIMENTS.md`, decisions in the Notion plan.
 
-Data lives on nunga under `/data/christineh/DATASET/radarhd/<date>/<trace>/`; `data/raw/<trace>` in this repo links there. Every trace is four streams on one Unix clock: `radar/` (20 Hz raw ADC), `lidar/` (10 Hz Ouster range image), `camera/` (30 fps), `imu/` (100 Hz). The radar starts about 2 s after the camera in every trace; align by timestamp, never by frame index.
+Data lives on nunga under `/data/christineh/DATASET/radarhd/<date>/<trace>/` (11/3 is in `transfer_2026-11-03/`); `data/raw/<trace>` in this repo links there. Every trace is four streams on one Unix clock: `radar/` (20 Hz raw ADC), `lidar/` (10 Hz Ouster range image), `camera/` (30 fps), `imu/` (100 Hz). The radar starts about 2 s after the camera in every trace; align by timestamp, never by frame index.
 
-## Where the data stands (2026-11-01)
+## Where the data stands (2026-11-03)
 
-Three sessions, 30 traces, about 105 GB. The radar chain, the range and angle checks, the extrinsics, the GRT comparison and the orbit reconstructions all run on it; the numbers are in `EXPERIMENTS.md`. What it cannot yet show, and what the next session is for:
+Four sessions, 43 traces, 118 GB on nunga. The radar chain, the range and angle checks, the extrinsics, the GRT comparison and the orbit reconstructions all run on it; the numbers are in `EXPERIMENTS.md`. What 11/3 added and what is still missing:
 
 | Needed by | Have | Missing |
 |---|---|---|
-| M2–M3 radar chain, range and azimuth accuracy | 10/21 range shots (residuals ±1.2 cm) and angle shots on a flat board | the ±20° azimuth bias (−6°, +9°) is the board's, not the array's; a corner reflector would settle it |
-| M4 extrinsics | 10/21 board placements, solved jointly, on the OS-0-64 rig | the LiDAR was swapped on 10/29; on the current rig the transform is only checked to 20–30 cm. Corner-reflector placements on this rig make it final |
-| Object reconstruction (obj-orbit-360, Yining) | Jeep: one full orbit, clean. Scotty: 45 s partial loop at 1 m with a wall behind. Walking to the Sky: full orbit, rig tilted up. Planters: drive-bys | one more clean orbit at 3 m radius, two laps, closed, object in the open; a small object the same way |
-| M5–M6 dense depth, day vs night | day only, handheld only | night: nothing. Static scenes from a marked spot, by day and again after dark |
-| Capstone detection scenes | handheld walks with people and cars | rig on the ground; off-campus places (`AGENDA_session2.md`, Session 3) |
+| M5–M6 dense depth, day vs night | handheld by day (10/29), handheld at sunset (11/3), where the image still has most of its edges | **after dark: nothing. Any static outdoor scene: nothing.** No pair of the same view in two lights |
+| M4 extrinsics | 10/21 board solve on the old rig; 11/3: eight board placements on the current rig, 1.5–3 m, ±41°, one height | a solve of the 11/3 shots (not yet run); the rig measured with a tape (the 11/3 shots suggest the LiDAR moved about 20 cm in the swap, and they cannot see z); a corner reflector and placements beyond 3 m |
+| M2–M3 azimuth | flat board only | the ±20° bias (−6°, +9°) is still the board's or the array's; only a corner reflector settles it |
+| Object reconstruction (obj-orbit-360, Yining) | Jeep orbit, clean. Scotty on 11/3: two passes at 2.6 m, pedestal repeats to 2 cm, wall still behind it. Walking to the Sky, tilted. A 192 m loop around the lawn, a six-turn spin | a small object with nothing behind it; ask Yining whether a second car is worth it |
+| Capstone detection scenes | handheld walks with people and cars, corridors and an atrium with people | rig on the ground; off-campus places (`AGENDA_session2.md`) |
 
-Verdict: the data is good enough for everything built so far. The two things that would make the report weak are not in it yet: a calibration taken on the rig as it is now, and night captures. Both fit in one afternoon.
+Verdict: 11/3 closed the calibration gap in part and gave a much better small-object orbit, but it stopped recording at 17:20, five minutes after sunset and before any darkness. The report's main claim, a 3D camera that works in the dark, still has no data behind it. That is the one thing the next session has to deliver.
 
-## Next session: the last capture (before 2026-11-20)
+## Next session: proposal (the last capture, before 2026-11-20)
 
-Capture ends 11/20 (milestone M5); after that it is evaluation and writing. The list is in priority order: if the session is cut short, the top is what matters. About 2.5 h on campus plus 40 min after dark (dark by about 17:30 now). Procedure as in `AGENDA_session2.md`; the capstone's off-campus list there can share the day if there is time.
+Capture ends 11/20 (milestone M5); after that it is evaluation and writing. Aim for a clear evening between 11/9 and 11/14: M4 is due 11/15, and it leaves a spare evening if it rains. Sunset that week is about 17:06, civil dusk 17:35, nautical dusk 18:08, so **the night takes start at 18:10**, not at 17:30 as this list said before. About 3 h 15 min with the wait, from 15:30 to 18:45.
 
-| # | What | How | Time | Serves |
-|---|---|---|---|---|
-| 0 | Dry run | 30 s, started 30 s after `lidar Initialized`; check all four streams, LiDAR `[128, 2048]` | 5 min | — |
-| 1 | **Calibration with a corner reflector** | reflector on a stand, the flat board (or a sheet of card) directly behind it so the camera and the LiDAR see something at the same spot; 10 placements at 2–8 m, azimuth −40° to +40°, two heights; rig static, 10 s each (`./shoot.sh calib_<n> 10`); a photo from behind the rig and the tape distance for every placement | 20 min | M4 final (rerun `python -m src.calib.joint`), M1 ±20° repeat |
-| 2 | **Rig geometry by tape** | radar board to LiDAR base (vertical and forward), radar to camera lens; write the numbers into `calib/` | 5 min | M4 (`GRT.md` found three inconsistent published offsets) |
-| 3 | **Static scenes, day** | three spots marked with chalk and a photo; rig on the ground or a tripod, level; 60 s each; shot late in the afternoon so the night repeat is an hour away. Fixed objects at three depths: (a) Scotty plaza: statue 3–4 m, planters 5–8 m, the colonnade wall 10–12 m square to the rig, not oblique; (b) a lamp-lit path with the lamp on one side only: a bench or bike rack at 2–3 m, a post or bin at 6 m, a building at 15 m; (c) a parking lot, cars at 4–10 m, as the bonus (count the cars; they may leave). A corner reflector at a taped 5 m in each | 15 min | M5, M6 ground truth by distance bin |
-| 4 | **Handheld route, day** | 2 min, under 1 m/s, level; somewhere in it a person walks toward and away from the rig at 3–6 m | 5 min | M5, X6 Doppler |
-| 5 | **Orbits** | one car and one small object (hydrant, bike rack, bin): radius 3 m, 0.5 m/s, two full laps, start and stop on a chalk mark, rig level, nothing flat within 6 m behind the object; one corner reflector in the scene at a taped distance; a second person films with a phone and photographs the object | 25 min | obj-orbit-360, Yining's reconstruction, b-roll for the video |
-| 6 | **Spin in place** | open spot, 2 × one slow turn per minute | 3 min | odometry yaw (it slips ~150° in the 10/29 spin) |
-| 7 | **Static scenes and route, night** | the same three spots and the same route after dark (about 17:30): rig on the chalk marks, reflector where it was, camera exposure and gain exactly as by day and written down; at the lamp-lit path a person walks through at 3–6 m | 25 min | M5–M6: the "works in the dark" claim, X6 at night |
-| 8 | If time | orbit of a tree (non-metal), X4 wall test (rig parallel to a wall at 1.5 m, 3 × 30 s), X10 open sky 60 s | 15 min | X4, X10, obj-orbit-360 |
+Before the day:
 
-Day and night: the only variable is the light, so the objects are fixed ones (a car that drives off between the two takes loses the pair), the station is the same chalk mark, and the camera settings are the same. Each scene has a lit half and a dark half, so one night frame shows where the image still has edges for the fill and where the radar is on its own. The Scotty plaza is the one we already know in all three sensors: by night the camera loses the dog and the LiDAR and radar do not change.
+- **A corner reflector.** Ask Tianshu; both board sessions used a flat board. If the lab has none, three 20 cm squares of stiff card with flat foil and square corners will do.
+- **The camera's exposure.** Find out whether it is automatic. Lock it, or at least write down what it is for each take.
+- **Battery.** Ask Tianshu whether the rig lasts 3 h. Powering it off in the gap is fine; after the restart wait 30 s past `lidar Initialized`.
+- **A tripod or a cart**, chalk and a tape. **Ask Yining** what orbit they want, if any.
 
-Not again: orbits at 1 m (at that range the radar sees one blob and the odometry swings), a tilted rig, an object with a flat wall close behind it, START before the LiDAR has settled.
+| # | When | What | How | Time | Serves |
+|---|---|---|---|---|---|
+| 0 | 15:30 | Dry run | 30 s, started 30 s after `lidar Initialized`; all four streams, LiDAR `[128, 2048]` | 5 min | — |
+| 1 | daylight | **Rig geometry by tape** | radar board to LiDAR base (vertical, forward, sideways), radar to camera lens; a side photo and a top photo; numbers into `calib/` | 5 min | M4: settles the 20 cm question and z, which no board shot can |
+| 2 | by 16:30 | **Static scenes, day** | three spots marked with chalk and a photo; rig on the tripod or cart, level; 60 s each. Fixed objects at three depths: (a) Scotty plaza: statue 3–4 m, planters 5–8 m, the wall 10–12 m square to the rig, not oblique; (b) a lamp-lit path with the lamp on one side only: a bench or bike rack at 2–3 m, a post or bin at 6 m, a building at 15 m; (c) a parking lot, cars at 4–10 m, as the bonus (count the cars; they may leave). A reflector at a taped 5 m in each | 15 min | M5, M6 ground truth by distance bin |
+| 3 | daylight | **Corner reflector** | rig static; reflector on a stand at 3, 5, 8, 12 m, across ±30°, two heights, 8 placements, 10 s each (`./shoot.sh calib3_<n> 10`); a card behind it, tilted so it mirrors away from the radar, gives the camera and the LiDAR the same spot; a photo and the tape distance for each | 20 min | M4 final, the ±20° repeat, placements beyond 3 m |
+| 4 | daylight | Same walks by day | the 11/3 lawn loop (about 3.5 min) and the two-pass Scotty orbit, same paths; on the loop a person walks toward and away from the rig at 3–6 m | 8 min | M5: day against 11/3 sunset against night on one route; X6 |
+| 5 | 16:45–18:00 | If Yining wants it, then if time | a small object in the open (hydrant, bin) at 3 m radius, 0.5 m/s, two laps in one direction, nothing flat within 6 m behind it; a tree; X4 wall (rig parallel at 1.5 m, 3 × 30 s); X10 open sky 60 s | up to 45 min | obj-orbit-360, X4, X10 |
+| 6 | 18:10 | **Static scenes, night** | the same three chalk marks, the reflector where it was, the camera exposure and gain exactly as by day and written down; a person walks through the lamp-lit path at 3–6 m | 15 min | M5–M6: the "works in the dark" claim, X6 at night |
+| 7 | after | Same walks, night | the lawn loop and the Scotty orbit again | 8 min | M5: the third point on the route, odometry and radar independent of light |
 
-Afterwards: copy to nunga, `./validate.sh`, labels into `notes/shots.csv`, a session entry below (rig, traces, quality, what each trace is for), then rerun the calibration chain and `pytest`.
+If the session is cut short, items 1, 2 and 6 are the session: about 1 h 15 min of work plus the wait for dark. Drop the rest first.
+
+Day and night: the only variable is the light, so the objects are fixed ones (a car that drives off between the two takes loses the pair), the station is the same chalk mark, and the camera settings are the same. Each scene has a lit half and a dark half, so one night frame shows where the image still has edges for the fill and where the radar is on its own. The Scotty plaza is the one we know best in all three sensors: by night the camera loses the dog and the LiDAR and radar do not change. Re-walking the 11/3 routes makes those traces useful as the middle point of a day, sunset, night series.
+
+Not again: another flat-board calibration; walks in place of static scenes; stopping before 18:00; an object with a flat wall close behind it; a tilted rig; START before the LiDAR has settled.
+
+Afterwards: copy to nunga, `./validate.sh`, labels into `notes/shots.csv`, the tape numbers and photos with the upload, a session entry below, then rerun the calibration chain and `pytest`.
+
+## 2026-11-03 · Session 3 · lab calibration, campus at sunset
+
+Rig: unchanged since 10/29 (OS-0-128, same config). 13 traces, 24 GB, in `transfer_2026-11-03/` rather than `2026-11-03/`. Content is read from the frames and the odometry because no notes came with the upload. Full log with per-trace tables and how each number was made: [notes/sessions/2026-11-03.md](notes/sessions/2026-11-03.md).
+
+| Trace | Length | Content |
+|---|---|---|
+| `16-03-39` to `16-27-20` (8) | 10 s each | lab, rig static, flat board at about 3, 2, 1.5 m across ±41° |
+| `16-55-34` | 7 s | dry run outdoors |
+| `17-01-12` | 195 s | walk to the plaza → **Scotty, two passes at 2.6 m (30–165 s)** → a table with people |
+| `17-07-11` | 211 s | **192 m loop around a large lawn** (looks like the Cut) |
+| `17-11-37` | 410 s | paths, a lit ramp → **indoors from 205 s**: corridors, a bridge, an atrium balcony |
+| `17-18-46` | 84 s | **spin in place on the balcony, six turns**, often tilted up |
+
+Quality. `roverd validate` passes on all 13; radar at most 4 invalid frames per trace; LiDAR up to 1.1 % of scans missing outdoors and 4.4 % in `17-11-37`, where the gaps cluster indoors; camera gaps ≤ 67 ms (108 ms once). Light: sunset was at about 17:15 and the walk went indoors at that moment, so there is no outdoor frame after sunset; edge strength on the ground is 8–12 against 12–14 by day. The trace does not say whether the exposure was automatic.
+
+Calibration. The board shows in radar, LiDAR and image in all eight shots. The 10/21 transform leaves a range residual of +18.5 cm, all eight the same sign, and the projected LiDAR board misses the image's board by about 50 px at 3 m and 100 px at 1.5 m (by eye). A quick radar-only solve with z held gives yaw +98.3° ± 2.5° and t = (+0.05, +0.12) m against +94.4° and (−0.15, +0.02) m, range residual 6.3 cm. So the LiDAR may have moved about 20 cm in the swap; a check on the Scotty orbit could not confirm it, and z is not observable from these shots. `calib/` is unchanged.
+
+The orbit. −360° then +355° at 0.35 m/s, range to the pedestal 2.6 m median (1.9–5.0 m), the pedestal repeats between passes to 2 cm. Radar: 45,834 static points, 1 cm median to the LiDAR, 4,378 within 0.35 m of the pedestal axis. In range the radar sees the near side; across the beam it is still one blob. The spin holds too: 26° against the IMU over six turns, where the 10/29 spin slipped about 150°.
+
+Used for: nothing yet beyond these checks.
+
+Next time: after dark, static, same chalk marks by day and by night; the rig by tape; a corner reflector.
 
 ## 2026-10-29 · Session 2 · campus, handheld
 

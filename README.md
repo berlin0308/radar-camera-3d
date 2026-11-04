@@ -15,6 +15,7 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `SESSIONS.md` | one entry per rig session: rig state, traces, data quality, what each trace is for; the shot list for the next session on top |
 | `AGENDA_session2.md` | rig-day procedure (start-up, recording, shut-down, copying) |
 | `notes/shots.csv` | which trace is which shot |
+| `notes/sessions/` | full log per session, and the script behind each session's numbers |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
 | `src/calib/` | extrinsics from the 10/21 board shots: `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP), `joint` (one weighted solve, LiDAR frame); `RadarToLidar` / `RadarToCamera` to apply them; `overlay`, `compare`, `examples` to look at the result |
@@ -54,7 +55,7 @@ Radar, LiDAR and camera are rigid on the rig; the fixed transforms between them 
 | LiDAR → camera | same solve | `calib/extrinsics_joint.json` | ±3°, ±10–14 cm; 23 px |
 | radar → camera | composed from the two above | `calib/extrinsics_joint.json` | consistent by construction |
 
-Pairwise solves (Kabsch 2D, PnP) are kept in `calib/` for comparison; the joint one is the one to use. Pitch and roll of the radar are fixed at 0 (unobservable without radar elevation). Limits come from the flat board, not the solver; a corner reflector session would bring them down.
+Pairwise solves (Kabsch 2D, PnP) are kept in `calib/` for comparison; the joint one is the one to use. Pitch and roll of the radar are fixed at 0 (unobservable without radar elevation). Limits come from the flat board, not the solver; a corner reflector session would bring them down. **These numbers are from the rig before the 10/29 LiDAR swap.** The board shots of 2026-11-03 leave +18.5 cm of range residual under this transform, so on traces from 10/29 on expect up to 30 cm; a solve on the current rig is pending ([session log](notes/sessions/2026-11-03.md)).
 
 ```python
 from src.calib.transform import RadarToLidar, RadarToCamera

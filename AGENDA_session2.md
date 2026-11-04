@@ -51,7 +51,7 @@ material (car, small metal, tree, wall) give a clean comparison against the 128-
 
 ---
 
-# Session 3 · off campus (about 3 h)
+# Off-campus session (about 3 h, capstone, not scheduled)
 - Places unlike the GRT training data (Oakland streets, Squirrel Hill, Schenley Park, downtown),
   crossings and sidewalks with people and cars, so the capstone can be tested for overfitting
 - If it rains or is foggy that day, record rain / fog for capstone validation; mud and water only on a

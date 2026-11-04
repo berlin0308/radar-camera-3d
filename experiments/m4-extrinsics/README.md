@@ -1,6 +1,6 @@
 # M4: radar to LiDAR and radar to camera extrinsics
 
-**Status:** Radar→LiDAR solved in 2D, radar→camera by PnP, and one joint solve (2026-11-01, preliminary). Numbers below are from the corrected LiDAR geometry (11/1 evening: the beam-azimuth offset sign in `src/calib/lidar.py` was flipped, 0.7 m median error per LiDAR point; everything was rerun).
+**Status:** Radar→LiDAR solved in 2D, radar→camera by PnP, and one joint solve (2026-11-01, preliminary, on the rig before the 10/29 LiDAR swap). Board shots on the current rig recorded 2026-11-03; a first look is under "The current rig" below, the solve is not done and `calib/` is unchanged. Numbers below are from the corrected LiDAR geometry (11/1 evening: the beam-azimuth offset sign in `src/calib/lidar.py` was flipped, 0.7 m median error per LiDAR point; everything was rerun).
 
 ## Question
 Where is the radar relative to the LiDAR and the camera, and how far do transformed radar points land from the target?
@@ -141,10 +141,22 @@ More examples, no calibration vs the joint solve, chosen because the effect is e
 
 *Radar points (SNR > 15 dB, drawn at radar height) on six scenes: 10/21 board at 40° right, 20° left and 26° right; 10/29 food truck, crosswalk, Scotty. `python -m src.calib.examples`.*
 
+## The current rig: first look at the 2026-11-03 shots
+Eight more placements of the same flat board, rig static, 1.5–3 m, ±41°, one height, on the OS-0-128 rig. Radar part of the joint solve only (range σ 2 cm, azimuth σ 2°); the camera side is not solved. `python notes/sessions/2026-11-03_checks.py board`.
+
+| Transform on these shots | Yaw | t (m) | Range residual | Azimuth residual |
+|---|---|---|---|---|
+| 10/21 joint solve | +94.4° | (−0.15, +0.02, −0.27) | +18.5 cm, all eight the same sign | 1.7° |
+| Fresh, z held at −0.27 m | +98.3° ± 2.5° | (+0.05 ± 0.055, +0.12 ± 0.023, −0.27) | 6.3 cm | 2.1° |
+| Fresh, z free | +99.2° | (−0.08, +0.14, +0.24) | 4.0 cm | 2.1° |
+
+The free solve puts the radar above the LiDAR, so z is not observable from one board height. The LiDAR board projected through the 10/21 LiDAR→camera solve misses the board in the image by about 50 px at 3 m and 100 px at 1.5 m (by eye), which is a translation error. Both suggest the LiDAR moved about 20 cm against the radar and camera in the swap. Not proven: on the 11/3 Scotty orbit the radar reads 0.28 m in front of the pedestal axis under one offset and 0.48 m under the other, either side of the 0.39 m radius, so that check cannot choose. The rig has to be measured with a tape.
+
 ## Conclusion
 Radar→LiDAR: a 2D rigid transform explains the seven board placements to 8.1 cm on average and still holds on Session 2 data after the LiDAR swap; the joint solve brings the range residual to 2.9 cm and puts the radar 0.27 ± 0.15 m below the LiDAR, consistent with the rig's nominal geometry. The residual is dominated by the radar's azimuth error on a flat board, not by range. Radar→camera: PnP on seven board centres brings the reprojection error from 125 to 33 px, which is the radar's own bearing error; the rotation (5–7° about two axes) is usable, the translation is not yet trustworthy.
 
 ## Open items
+- Run the full joint solve on the 2026-11-03 shots (needs the board centres in the images); measure the rig with a tape
 - Repeat with a corner reflector (apex visible in the image, strong point return) to bring both residuals down and pin the translation
 - Pitch, roll for radar→LiDAR: from the board height in LiDAR plus a tape measure, or after X9. t_z from the joint solve is −0.27 ± 0.15 m against the rig's nominal 0.15–0.17 m (red-rover URDF comment, nrdk docstring); a tape measure would pin it
 - Close the loop: compose radar→LiDAR with a LiDAR→camera estimate and compare with radar→camera
