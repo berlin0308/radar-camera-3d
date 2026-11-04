@@ -19,6 +19,7 @@ bends long edges) from corners read by hand off the median frame. Robust loss, 8
     python -m src.calib.plane_solve --snap        # redo calib/board_corners_2026-11-03.json from HAND_CORNERS
     python -m src.calib.plane_solve --check       # leave-one-out, 10/21 angle shots, image edges on other traces
     python -m src.calib.plane_solve --overlay     # figures/calib_lidar_on_board.png, the 10/21 solve against this one
+    python -m src.calib.plane_solve --shots       # figures/calib_shots_1103.png, a top view of each board shot
 
 Writes nothing but the json and the figure. The 10/21 solve stays in calib/extrinsics_joint_2026-10-21.json.
 """
@@ -278,6 +279,24 @@ def figure(rows, x0, tz, spec, centre, path):
     fig.savefig(path, dpi=150); print("saved", path)
 
 
+def shots_figure(path="figures/calib_shots_1103.png"):
+    """Top view of each board shot in the radar frame: the LiDAR scan, the fitted board, every CFAR point of the shot, the radar's reading."""
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    x0, tz = seed_x(); rows = load_rows(); sol = solve_radar(rows, x0, tz); R_lr, t = _unpack(sol["x"], tz)
+    fig, axes = plt.subplots(2, 4, figsize=(16.64, 8.6), constrained_layout=True)
+    for a, s in zip(axes.flat, rows):
+        lt = LidarTrace(os.path.join("data/raw", s["trace"])); xyz = lt.xyz(lt.index_at(s["t0"] + 3)); xyz = xyz[xyz[:, 2] > s["floor"] + 0.3]; p = xyz @ R_lr.T + t
+        tr = RadarTrace(os.path.join("data/raw", s["trace"])); pts = np.concatenate([detect(tr.frame(k), tr.params, r_min=0.35, r_max=9.0)[0] for k in range(0, len(tr), 4)])
+        a.scatter(p[:, 0], p[:, 1], s=.4, color="#B9C2CC", label="LiDAR scan, above the floor")
+        a.scatter(-pts["r"] * np.sin(pts["az"]), pts["r"] * np.cos(pts["az"]), s=9, c=pts["snr"], cmap="plasma", vmin=10, vmax=45, label="CFAR points of the shot, colour = SNR")
+        C = s["corners"][[0, 1]] @ R_lr.T + t; a.plot(C[:, 0], C[:, 1], color="#566373", lw=2.4, label="board, plane fit")
+        a.scatter(-s["r"] * np.sin(s["az"]), s["r"] * np.cos(s["az"]), marker="x", s=70, color="#15202B", lw=1.8, zorder=5, label="radar reading")
+        a.scatter(0, 0, marker="^", s=70, color="#15202B"); a.set_aspect("equal"); a.set_xlim(-5, 5); a.set_ylim(-0.5, 7.5); a.spines[["top", "right"]].set_visible(False); a.tick_params(labelsize=9)
+        a.set_title(f"{s['name']} · {s['trace'][-8:]} · {s['r']:.2f} m, {np.degrees(s['az']):+.0f}°, {s['snr']:.0f} dB", fontsize=11, loc="left")
+    axes.flat[0].legend(fontsize=8, loc="upper left", frameon=False, markerscale=2); fig.supxlabel("x, right (m)", fontsize=11); fig.supylabel("y, forward (m)", fontsize=11)
+    fig.savefig(path, dpi=120); print("saved", path)
+
+
 def overlay_figure(path="figures/calib_lidar_on_board.png", picks=("calib2_01", "calib2_03", "calib2_05", "calib2_07")):
     """The LiDAR points on the board, projected on the image through the 10/21 solve and this one. Crops hold the board only, no people."""
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -363,5 +382,5 @@ def edges(cam, per_trace=14):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("--snap", action="store_true"); ap.add_argument("--check", action="store_true"); ap.add_argument("--overlay", action="store_true"); a = ap.parse_args()
-    snap_corners() if a.snap else check() if a.check else overlay_figure() if a.overlay else run()
+    ap = argparse.ArgumentParser(); ap.add_argument("--snap", action="store_true"); ap.add_argument("--check", action="store_true"); ap.add_argument("--overlay", action="store_true"); ap.add_argument("--shots", action="store_true"); a = ap.parse_args()
+    snap_corners() if a.snap else check() if a.check else overlay_figure() if a.overlay else shots_figure() if a.shots else run()

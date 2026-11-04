@@ -100,6 +100,7 @@ def main():
     ap.add_argument("--far", type=float, required=True); ap.add_argument("--near", type=float, required=True)
     ap.add_argument("--orbit", type=float, nargs=2, required=True, help="start, end (s) of the orbit used for the LiDAR cut-out")
     ap.add_argument("--slice", type=float, nargs=2, default=(0.45, 1.0), help="heights of the pedestal slice the centre is fitted on")
+    ap.add_argument("--pedestal-radius", type=float, default=None, help="known pedestal radius (m); default: a free fit on the far scan, which needs most of the arc in view")
     ap.add_argument("--poses-dir", default="data/poses"); ap.add_argument("--accumulate", type=int, default=10); ap.add_argument("--snr", type=float, default=10)
     ap.add_argument("--split", action="store_true"); ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -112,7 +113,7 @@ def main():
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 
     # pedestal radius from the far scan, then every scan's centre with that radius
-    radius = Scan(lt, L, t0 + a.far, c_guess, None, a.slice).radius; print(f"pedestal radius from the far scan: {radius:.2f} m")
+    radius = a.pedestal_radius or Scan(lt, L, t0 + a.far, c_guess, None, a.slice).radius; print(f"pedestal radius: {radius:.2f} m" + (" (given)" if a.pedestal_radius else " (free fit on the far scan)"))
 
     # a, b: camera frames with the LiDAR cut-out and the radar detections projected
     cams = []
