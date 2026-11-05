@@ -34,6 +34,7 @@ SCAN_PERIOD = 0.1       # s, one revolution
 def gyro_yaw(trace):
     """(t, psi): integrated z angular rate of the rig IMU, radians, same clock as the LiDAR."""
     d = os.path.join(trace, "imu"); t = np.fromfile(os.path.join(d, "ts"), "<f8"); av = np.fromfile(os.path.join(d, "avel"), "<f4").reshape(-1, 3)
+    n = min(len(t), len(av)); t, av = t[:n], av[:n]          # a recording cut off mid-write leaves the files at different lengths
     return t, np.cumsum(av[:, 2] * np.gradient(t))
 
 
@@ -90,7 +91,7 @@ def main():
     pos = T[:, :3, 3]; path = np.linalg.norm(np.diff(pos, axis=0), axis=1).sum(); gap = np.linalg.norm(pos[-1] - pos[0])
     yaw = np.degrees(np.unwrap(Rotation.from_matrix(T[:, :3, :3]).as_euler("zyx")[:, 0]))
     # IMU check: the IMU's own orientation estimate, yaw change over the same window
-    imu_ts = np.fromfile(os.path.join(a.trace, "imu", "ts"), "<f8"); imu_rot = np.fromfile(os.path.join(a.trace, "imu", "rot"), "<f4").reshape(-1, 3)
+    imu_ts = np.fromfile(os.path.join(a.trace, "imu", "ts"), "<f8"); imu_rot = np.fromfile(os.path.join(a.trace, "imu", "rot"), "<f4").reshape(-1, 3); imu_ts = imu_ts[:len(imu_rot)]; imu_rot = imu_rot[:len(imu_ts)]
     i0, i1 = np.searchsorted(imu_ts, [t_l[0], t_l[-1]]); imu_yaw = np.degrees(np.unwrap(np.radians(imu_rot[i0:i1, 2]) if np.abs(imu_rot).max() > 7 else imu_rot[i0:i1, 2]))
     print(f"{name}: {len(scans)} scans over {t_l[-1]-t_l[0]:.0f} s in {dt:.0f} s ({len(scans)/dt:.1f} scans/s); path {path:.1f} m, "
           f"start-to-end gap {gap:.2f} m ({gap/max(path,1e-6)*100:.1f}% of path), yaw turned {yaw[-1]-yaw[0]:+.0f} deg (IMU says {imu_yaw[-1]-imu_yaw[0]:+.0f} deg); "

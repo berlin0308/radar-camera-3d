@@ -2,7 +2,7 @@
 
 One entry per capture day: the rig as it was, what was recorded, how good the data is, what it has been used for, and what the next session has to fix. The shot list for the next session is at the top. The recording procedure (start-up, shut-down, copying) is in `AGENDA_session2.md`, trace labels in `notes/shots.csv`, results in `EXPERIMENTS.md`, decisions in the Notion plan.
 
-Data lives on nunga under `/data/christineh/DATASET/radarhd/<date>/<trace>/` (11/3 is in `transfer_2026-11-03/`); `data/raw/<trace>` in this repo links there. Every trace is four streams on one Unix clock: `radar/` (20 Hz raw ADC), `lidar/` (10 Hz Ouster range image), `camera/` (30 fps), `imu/` (100 Hz). The radar starts about 2 s after the camera in every trace; align by timestamp, never by frame index.
+Data lives on nunga under `/data/christineh/DATASET/radarhd/<date>/<trace>/` `data/raw/<trace>` in this repo links there. Every trace is four streams on one Unix clock: `radar/` (20 Hz raw ADC), `lidar/` (10 Hz Ouster range image), `camera/` (30 fps), `imu/` (100 Hz). The radar starts about 2 s after the camera in every trace; align by timestamp, never by frame index.
 
 ## Where the data stands (2026-11-03)
 
@@ -48,9 +48,13 @@ Not again: another calibration inside 3 m; walks in place of static scenes; stop
 
 Afterwards: copy to nunga, `./validate.sh`, labels into `notes/shots.csv`, the tape numbers and photos with the upload, a session entry below, then `python -m src.calib.plane_solve` with the taped height and `pytest`.
 
+## 2026-11-05 · Session 4 · static scenes, Scotty plaza, a campus walk
+
+Rig unchanged (OS-0-128, same config). Nine traces, 38 GB, all pass `roverd validate`: an empty lab and a person squatting at 2 m, an outdoor static scene with a car and tripods (twice), a walk to the Scotty plaza, two static takes at Scotty, a Scotty orbit, and a 13-minute campus walk that was **cut off** (use 0-616 s; the camera needs rewrapping to read past 297 s). Seven figures on it and on 11/03 (session health, board placements, static-scene heatmaps, rig geometry, ego-motion Doppler, radar on LiDAR, Scotty dusk against day): [notes/sessions/2026-11-05.md](notes/sessions/2026-11-05.md). Still not recorded: anything after dark.
+
 ## 2026-11-03 · Session 3 · lab calibration, campus at sunset
 
-Rig: unchanged since 10/29 (OS-0-128, same config). 13 traces, 24 GB, in `transfer_2026-11-03/` rather than `2026-11-03/`. Content is read from the frames and the odometry because no notes came with the upload. Full log with per-trace tables and how each number was made: [notes/sessions/2026-11-03.md](notes/sessions/2026-11-03.md).
+Rig: unchanged since 10/29 (OS-0-128, same config). 13 traces, 24 GB (uploaded to `transfer_2026-11-03/`, since moved to `2026-11-03/`). Content is read from the frames and the odometry because no notes came with the upload. Full log with per-trace tables and how each number was made: [notes/sessions/2026-11-03.md](notes/sessions/2026-11-03.md).
 
 | Trace | Length | Content |
 |---|---|---|
