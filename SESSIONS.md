@@ -18,6 +18,22 @@ Four sessions, 43 traces, 118 GB on nunga. The radar chain, the range and angle 
 
 Verdict: 11/3 closed the calibration gap and gave a much better small-object orbit, but it stopped recording at 17:20, five minutes after sunset and before any darkness. The report's main claim, a 3D camera that works in the dark, still has no data behind it. That is the one thing the next session has to deliver.
 
+## Tonight, 2026-11-05: the night pairs for today's day takes
+
+Dark enough from 18:14 (nautical dusk). Every item repeats a day trace of today at the same station, so light is the only thing that changes. Route: station B, then Scotty, walk back along the 16-46-03 route, then the lab. About an hour. Station cards (day frame plus the LiDAR's distances, local only): `data/sessions/2026-11-05/station_*_LOCAL.png`.
+
+| # | Pair with (day) | Where and how | Time | Serves |
+|---|---|---|---|---|
+| 0 | | camera: switch exposure to manual if it can be, photograph the settings; wait 30 s after `lidar Initialized`; **end every take with STOP**, never by power (16-46-03 was cut off) | 5 min | all |
+| 1 | `16-10-35` static_day_b | same mark, LiDAR at **0.87 m** above ground (same stand), facing the same way: first return straight ahead about **7.0 m**, 5.1 m at 30° right, 5.5 m at 30° left; tripods and reflectors where they were; say in the notes if the car is gone; 60 s | 10 min | M5, M6 by distance |
+| 2 | `16-34-29`, `16-36-41` Scotty static | same mark: pedestal **3.56 m** ahead, about 5° right; LiDAR at **1.59 m** (same stand); wall behind at about 6 m; reflectors on the two tripods as by day; 2 × 60 s, then 60 s with one person walking across at 3-6 m | 15 min | M5 "works in the dark", figure 7's real comparison, X6 at night |
+| 3 | `16-46-03`, 0-600 s | the same walk back from the Scotty plaza toward the lab, below 1.2 m/s, rig level; stop with STOP before the elevator | 10 min | M5 handheld, X6, ego-motion at night |
+| 4 | `15-43-05`, `15-44-13` | the lab, rig on the same spot, **lights off**: empty room 30 s, then the person squatting at the same 2 m for 60 s; lights on again for 30 s if the spot moved | 10 min | the cleanest dark case: the camera sees nothing, the radar's person at 1.65 m should not change |
+
+Not tonight: the Scotty orbit (Yining's; only if they ask for a night orbit), calibration (done 11/03).
+
+Afterwards: copy to nunga with the notes (which trace is which, the car, the camera settings), `./validate.sh`, then redo figures 3 and 7 of `notes/sessions/2026-11-05.md` day against night.
+
 ## Next session: proposal (the last capture, before 2026-11-20)
 
 Capture ends 11/20 (milestone M5); after that it is evaluation and writing. Aim for a clear evening between 11/9 and 11/14: M4 is due 11/15, and it leaves a spare evening if it rains. Sunset that week is about 17:06, civil dusk 17:35, nautical dusk 18:08, so **the night takes start at 18:10**, not at 17:30 as this list said before. About 3 h 15 min with the wait, from 15:30 to 18:45.
