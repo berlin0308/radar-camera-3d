@@ -42,6 +42,8 @@ for p in system/product video/autoExposure video/iso video/gain video/shutter vi
 
 Then pin it (PUT with JSON; field names as the read printed them): automatic exposure off, shutter 1/60 s (180° at 30 fps), a fixed gain, white balance 5600 K, and read again to check.
 
+**Tonight's camera settings (decided 11/05, set with HDMI and the front buttons):** automatic exposure off, shutter 1/60 s, gain **+18 dB**, white balance 5600 K, the same for every take tonight; a phone photo of the menu in the lab and at Scotty. The day takes were most likely on automatic exposure, so the pair is "day auto against night fixed", and the note says so.
+
 | # | Pair with (day) | Where and how | Time | Serves |
 |---|---|---|---|---|
 | 0 | | dry run 30 s in the lab, all four streams | 5 min | |
