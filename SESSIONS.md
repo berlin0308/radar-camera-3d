@@ -34,6 +34,14 @@ v4l2-ctl -d /dev/video0 --list-ctrls-menus               # which controls exist 
 
 If an auto control is listed (`*_auto`, `auto_exposure`), set it to manual with `v4l2-ctl -d /dev/video0 --set-ctrl=<name>=<value>` and write the value down. If an HDMI monitor is at hand, photograph the camera's menu (gain, shutter, iris, white balance) once in the lab and once at Scotty; that is the record figure 7 needs. If neither is possible, note "camera settings unknown" in the upload.
 
+**The camera itself, from a laptop (link seen on a Mac 2026-11-05; the API replies not yet checked).** A USB-C cable from a Mac to the camera's USB-C port is enough: macOS lists "Micro Studio Camera 4K G2" under Network (DHCP, the Mac gets 172.24.0.122/30, so the camera is **172.24.0.121**), and the camera's REST API should answer at `http://172.24.0.121/control/api/v1/`. Settings stay in the camera after it is unplugged and given back to the NUC over SDI. Read everything first, then save the output with the upload:
+
+```bash
+for p in system/product video/autoExposure video/iso video/gain video/shutter video/whiteBalance video/whiteBalanceTint video/ndFilter lens/iris lens/focus; do echo "== $p"; curl -s -m 3 http://172.24.0.121/control/api/v1/$p; echo; done | tee ~/cam_1105_settings.txt
+```
+
+Then pin it (PUT with JSON; field names as the read printed them): automatic exposure off, shutter 1/60 s (180° at 30 fps), a fixed gain, white balance 5600 K, and read again to check.
+
 | # | Pair with (day) | Where and how | Time | Serves |
 |---|---|---|---|---|
 | 0 | | dry run 30 s in the lab, all four streams | 5 min | |
