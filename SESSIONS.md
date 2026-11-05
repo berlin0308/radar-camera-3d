@@ -20,19 +20,31 @@ Verdict: 11/3 closed the calibration gap and gave a much better small-object orb
 
 ## Tonight, 2026-11-05: the night pairs for today's day takes
 
-Dark enough from 18:14 (nautical dusk). Every item repeats a day trace of today at the same station, so light is the only thing that changes. Route: station B, then Scotty, walk back along the 16-46-03 route, then the lab. About an hour. Station cards (day frame plus the LiDAR's distances, local only): `data/sessions/2026-11-05/station_*_LOCAL.png`.
+Dark enough from 18:14 (nautical dusk). Each take repeats a day trace of today from the same station, so the light is the only thing that changes. Order follows the route: start in the lab, walk to Scotty, back to the lab. About 70 minutes. Station card for Scotty (day frame plus the LiDAR's distances, local only): `data/sessions/2026-11-05/station_16-34-29_LOCAL.png`. Station B (`16-10-35`) is dropped tonight.
+
+**Before the first take (lab).** Start-up as in `AGENDA_session2.md`: shared ssh, then on the NUC `cd ~/red-rover/collect && export ROVER_CFG=config/radarhd-o-polin.yaml && sudo -E make config && make`; wait 30 s after `lidar Initialized`.
+
+**Camera exposure.** The camera is a Blackmagic Micro Studio feeding a Magewell USB-SDI capture card. Per red-rover's setup notes its gain, shutter and iris are set on the camera itself, with an HDMI monitor for the menu and the buttons on the front; the NUC cannot change them. What the NUC can do is read and pin the capture card's own controls, so that nothing automatic sits between the camera and the file (run before `make`, or stop the camera process first: the device is busy while it records):
+
+```bash
+v4l2-ctl --list-devices                                  # find the Magewell node, normally /dev/video0
+v4l2-ctl -d /dev/video0 --all > ~/cam_1105_night.txt     # record what it reports; copy this file with the data
+v4l2-ctl -d /dev/video0 --list-ctrls-menus               # which controls exist (brightness, contrast, auto ...)
+```
+
+If an auto control is listed (`*_auto`, `auto_exposure`), set it to manual with `v4l2-ctl -d /dev/video0 --set-ctrl=<name>=<value>` and write the value down. If an HDMI monitor is at hand, photograph the camera's menu (gain, shutter, iris, white balance) once in the lab and once at Scotty; that is the record figure 7 needs. If neither is possible, note "camera settings unknown" in the upload.
 
 | # | Pair with (day) | Where and how | Time | Serves |
 |---|---|---|---|---|
-| 0 | | camera: switch exposure to manual if it can be, photograph the settings; wait 30 s after `lidar Initialized`; **end every take with STOP**, never by power (16-46-03 was cut off) | 5 min | all |
-| 1 | `16-10-35` static_day_b | same mark, LiDAR at **0.87 m** above ground (same stand), facing the same way: first return straight ahead about **7.0 m**, 5.1 m at 30° right, 5.5 m at 30° left; tripods and reflectors where they were; say in the notes if the car is gone; 60 s | 10 min | M5, M6 by distance |
-| 2 | `16-34-29`, `16-36-41` Scotty static | same mark: pedestal **3.56 m** ahead, about 5° right; LiDAR at **1.59 m** (same stand); wall behind at about 6 m; reflectors on the two tripods as by day; 2 × 60 s, then 60 s with one person walking across at 3-6 m | 15 min | M5 "works in the dark", figure 7's real comparison, X6 at night |
-| 3 | `16-46-03`, 0-600 s | the same walk back from the Scotty plaza toward the lab, below 1.2 m/s, rig level; stop with STOP before the elevator | 10 min | M5 handheld, X6, ego-motion at night |
-| 4 | `15-43-05`, `15-44-13` | the lab, rig on the same spot, **lights off**: empty room 30 s, then the person squatting at the same 2 m for 60 s; lights on again for 30 s if the spot moved | 10 min | the cleanest dark case: the camera sees nothing, the radar's person at 1.65 m should not change |
+| 0 | | dry run 30 s in the lab, all four streams | 5 min | |
+| 1 | `15-43-05`, `15-44-13` | the lab, rig on the same spot as by day, **lights off**: empty room 30 s (`./shoot.sh lab_dark_empty 30`), then the person squatting at the same 2 m, 60 s (`./shoot.sh lab_dark_person 60`) | 10 min | the cleanest dark case: the camera sees nothing, the radar's person at 1.65 m should not change |
+| 2 | (16-46-03 reversed) | optional: record the walk to Scotty, below 1.2 m/s, rig level; STOP on arrival | 10 min | M5 handheld |
+| 3 | `16-34-29`, `16-36-41` | Scotty, same mark: pedestal **3.56 m** ahead, about 5° right, LiDAR **1.59 m** above ground (same stand), wall behind at about 6 m, reflectors on the two tripods as by day; 2 × 60 s, then 60 s with one person walking across at 3-6 m | 15 min | M5 "works in the dark", figure 7's comparison, X6 at night |
+| 4 | `16-38-55` | Scotty orbit as by day: start at the static mark, **counter-clockwise seen from above (statue on your left)**, radius about **2.5 m** (keep within 1.6-3.7 m), about **0.3 m/s**, one lap and a quarter, about 150 s, rig level | 5 min | the reconstruction (Yining), day against night |
+| 5 | `16-46-03`, 0-600 s | walk back to the lab along the day route, below 1.2 m/s; **STOP before the elevator** | 10 min | M5 handheld, X6, ego-motion at night |
+| 6 | | STOP, then `sync && sudo shutdown now` on the NUC; wait for the white light to go off before cutting power | 5 min | no repeat of the cut-off 16-46-03 |
 
-Not tonight: the Scotty orbit (Yining's; only if they ask for a night orbit), calibration (done 11/03).
-
-Afterwards: copy to nunga with the notes (which trace is which, the car, the camera settings), `./validate.sh`, then redo figures 3 and 7 of `notes/sessions/2026-11-05.md` day against night.
+Afterwards: copy to nunga with a note (which trace is which, the camera settings or "unknown", the `v4l2-ctl` file), `./validate.sh`, then redo figures 3 and 7 of `notes/sessions/2026-11-05.md` day against night.
 
 ## Next session: proposal (the last capture, before 2026-11-20)
 
