@@ -13,6 +13,12 @@ post-multiplied by diag(1, -1, -1). And gsplat's rasteriser is pinhole only, so 
 undistorted here and a PERSPECTIVE camera is written; the lens is equidistant fisheye, and feeding its
 K to a pinhole rasteriser would bend every ray at the edge of the frame.
 
+--origin object puts the world origin on the statue instead of on the first LiDAR scan. It changes
+nothing about the geometry — every camera and seed point moves by the same translation — but it is
+what makes `ns-viewer` usable: its camera orbits the world origin and zooms toward it, so with the
+origin 16 m away in the courtyard you can never get near the object, however far you scroll. It also
+makes the trained world the object frame, so `gs_to_object` has nothing left to subtract.
+
 --seed-ply gives the splat its initial points. A splat is normally seeded with COLMAP's sparse cloud;
 here the DA3 reconstruction stands in for it, which keeps the whole chain camera-only. Pass nothing
 for a random initialisation.
@@ -30,6 +36,8 @@ def main():
     ap.add_argument("poses", help="npz from src.ext.obj_rgb.export_poses")
     ap.add_argument("--out", required=True, help="dataset dir (put it on /data, not /)")
     ap.add_argument("--balance", type=float, default=0.0)
+    ap.add_argument("--origin", choices=("world", "object"), default="object",
+                    help="world = the frame of data/poses/<trace>; object = the pedestal centre and ground")
     ap.add_argument("--seed-ply", default=None)
     ap.add_argument("--seed-voxel", type=float, default=0.02)
     ap.add_argument("--seed-radius", type=float, default=12.0, help="keep seed points within this of the object")
@@ -49,6 +57,9 @@ def main():
     print(f"undistort: f {K[0,0]:.0f} -> {K_new[0,0]:.0f} px, field "
           f"{2*np.degrees(np.arctan(W/2/K[0,0])):.0f} -> {2*np.degrees(np.arctan(W/2/K_new[0,0])):.0f} deg")
 
+    shift = (np.r_[c_ref, np.median(ground)] if a.origin == "object" else np.zeros(3))
+    print(f"world origin: {a.origin}" + (f", shifted by {-shift.round(2)} m" if a.origin == "object" else ""))
+
     frames = []
     for i, p in enumerate(paths):
         name = f"{i:04d}.png"
@@ -57,6 +68,7 @@ def main():
             cv2.imwrite(q, cv2.remap(cv2.imread(p), m1, m2, interpolation=cv2.INTER_LINEAR,
                                      borderMode=cv2.BORDER_CONSTANT))
         c2w = np.linalg.inv(w2c[i]) @ CV_TO_GL
+        c2w[:3, 3] -= shift
         frames.append(dict(file_path=f"images/{name}", transform_matrix=c2w.tolist()))
 
     meta = dict(camera_model="OPENCV", w=W, h=H,
@@ -70,7 +82,8 @@ def main():
         # the seed cloud is in the object frame; put it back in the world the poses live in
         keep = np.hypot(*xyz[:, :2].T) < a.seed_radius
         xyz, rgb = xyz[keep], rgb[keep]
-        world = np.column_stack([xyz[:, 0] + c_ref[0], xyz[:, 1] + c_ref[1], xyz[:, 2] + np.median(ground)])
+        world = np.column_stack([xyz[:, 0] + c_ref[0], xyz[:, 1] + c_ref[1],
+                                 xyz[:, 2] + np.median(ground)]) - shift
         ij = np.floor(world / a.seed_voxel).astype(np.int64)
         _, idx = np.unique(ij, axis=0, return_index=True)
         world, rgb = world[idx], rgb[idx]

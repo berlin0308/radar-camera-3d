@@ -318,7 +318,12 @@ function look(k) {
   const v = views[k];
   // pull back far enough for the widest cloud on screen: the presets are sized for the 1.2 m cut-out,
   // and a scene layer reaches 15 m, which would otherwise put the camera inside it
-  const reach = Math.max(1.2, ...on.map(m => (bgOn && m.bg) ? m.bg.rmax : m.rmax), 1.2);
+  // height counts too: the GRT fog and the splat's rendered depth are only 1.2 m wide but 3 m tall,
+  // and fitting on radius alone puts the camera inside them
+  const reach = Math.max(1.2, ...on.map(m => {
+    const c = (bgOn && m.bg) ? m.bg : m;
+    return Math.max(c.rmax, c.zmax / 1.7);
+  }));
   const f = (layout === "row" ? 1 + span / 2.2 : 1) * (reach / 1.2);
   camera.position.set(span + v[0] * f, v[1] * f, v[2] * f);
   controls.target.set(span, 0, 0.8);

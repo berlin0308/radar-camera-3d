@@ -277,6 +277,22 @@ roofline.
 .venv/bin/python -m src.ext.viewer.serve --port 8422        # then http://localhost:8422/
 ```
 
+Two things are worth knowing before pointing `ns-viewer` at the splat run, because neither is obvious
+from the viewer. Its camera **orbits the world origin and zooms toward it**, and that origin is the
+first LiDAR scan, 16 m away in the middle of the courtyard, so the object cannot be reached however far
+you scroll — and the camera starts inside the Gaussians that model the walls, which fills the viewport
+with white needles. Those needles are real: the walls 5–15 m out are seen from a narrow range of angles
+and the optimiser fits them with very long thin Gaussians. `src/ext/obj_rgb/gs_filter_ckpt.py` edits the
+checkpoint rather than retraining: it keeps the 9,316 Gaussians of 260,031 whose centres are on the
+object (dropping, as it happens, exactly one needle that reached in from outside) and translates them so
+the statue is at the origin. Point the filtered run at the dataset written with `--origin object` and the
+train-camera frustums line up with it.
+
+`--bundle DIR` writes the page, three.js and every cloud into one folder with a manifest of relative
+URLs, for a machine that has no access here: 50 MB, served by any static server. It has to be *served*,
+not opened from disk, since ES modules and `fetch` do not work over `file://`.
+
+
 
 ## Results
 | Object | Size | Material | Radar points per frame on object | Extent error vs LiDAR | Mean echo (dB) | Visible from all sides? |
@@ -393,6 +409,15 @@ CUDA_VISIBLE_DEVICES=1 ~/miniconda3/envs/kplanes/bin/ns-export gaussian-splat \
     --output-dir /data/christineh/gs_scotty/exports/splat
 .venv/bin/python -m src.ext.obj_rgb.gs_to_object /data/christineh/gs_scotty/exports/splat/splat.ply \
     --poses out/da3_scotty/poses96.npz --out out/scotty_gs.ply
+
+# the splat, filtered to the object and recentred, for ns-viewer
+~/miniconda3/envs/kplanes/bin/python src/ext/obj_rgb/gs_filter_ckpt.py \
+    /data/christineh/gs_scotty/runs/scotty/splatfacto/posed96 --poses out/da3_scotty/poses96.npz \
+    --data /data/christineh/gs_scotty/data_obj \
+    --out /data/christineh/gs_scotty/runs/scotty/splatfacto/objonly
+~/miniconda3/envs/kplanes/bin/ns-viewer \
+    --load-config /data/christineh/gs_scotty/runs/scotty/splatfacto/objonly/config.yml \
+    --viewer.websocket-port 7007 --viewer.websocket-host 127.0.0.1
 
 # the scene layers, and the figures
 .venv/bin/python -m src.ext.obj_lidar.export_scene 2026-11-03.17-01-12 --centre -13.07 -9.86 \

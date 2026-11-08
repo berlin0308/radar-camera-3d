@@ -15,9 +15,20 @@ The clouds come from, in order:
     src.ext.obj_rgb.run_da3 + align_to_lidar     DA3, after the similarity onto the LiDAR
 
 --model NAME=PATH[=COLOUR] replaces the set, in the order given, for another object or another run.
-Pass --host 0.0.0.0 to reach it from another machine on the network.
+
+To put it on someone else's machine there are three ways, in order of how little they need from us:
+
+  --bundle DIR   writes a self-contained folder (page, three.js, every cloud, a manifest with relative
+                 URLs and a README). Zip it, hand it over, and they serve it with any static server --
+                 `python3 -m http.server` is enough. Nothing of ours has to stay running, and they
+                 need no account, no network and no access to nunga. It will not run from a file://
+                 URL, because ES modules and fetch are blocked there; it has to be served.
+  --host 0.0.0.0 serves it to the local network, so anyone on the same wifi can open
+                 http://<this machine>:<port>/. Quickest, and it exposes the clouds to that network.
+  an SSH tunnel  `ssh -N -L 8422:127.0.0.1:8422 <user>@<this machine>`, for someone who already has an
+                 account here. The default bind stays on 127.0.0.1 for this.
 """
-import argparse, http.server, json, os, socket, socketserver, urllib.request, webbrowser
+import argparse, http.server, json, os, shutil, socket, socketserver, urllib.request, webbrowser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,26 +59,68 @@ def fetch_vendor():
             raise SystemExit(f"\ncould not fetch {url}: {e}\n"
                              f"Download the three files in VENDOR into {d} by hand and run again.")
 
-# name, path, colour, note, whether the PLY's own colours are photographic ("photo" mode), and the
-# scene cloud that belongs to it. The models are the 1.2 m cut-out about the pedestal, which is what
+# name, path, colour, note, whether the PLY's own colours are photographic ("photo" mode), the scene
+# cloud that belongs to it, and whether it is on when the page opens. It opens on the LiDAR and the
+# best camera reconstruction, which is the comparison worth seeing first; GRT and the splat's rendered
+# depth is a fog that fills the cut-out and hides everything behind it, so it waits for a click. The models are the 1.2 m cut-out about the pedestal, which is what
 # every number is measured on; the scene is what surrounds it, behind one switch and fetched only when
 # that switch is first turned on, because it is 40 MB that the comparison does not need.
 DEFAULT = [
     ("radar · GRT", "out/scotty_radar.ply", "#E8534E",
-     "occupancy p > 0.9, first return per column", False, None),
+     "occupancy p > 0.9, first return per column", False, None, False),
     ("radar · CFAR", "out/scotty_radar_cfar.ply", "#F2B134",
-     "signal chain only, no elevation", False, "out/scotty_radar_scene.ply"),
+     "signal chain only, no elevation", False, "out/scotty_radar_scene.ply", False),
     ("LiDAR", "out/scotty_lidar_rgb.ply", "#5B8DEF",
-     "Ouster OS-0-128, the reference; 80% camera-coloured", True, "out/scotty_lidar_scene.ply"),
+     "Ouster OS-0-128, the reference; 80% camera-coloured", True, "out/scotty_lidar_scene.ply", True),
     ("RGB · DA3, 96 frames", "out/da3_posed_n96_r504/object.ply", "#3FBF7F",
-     "calibrated poses, 96 frames, no fit", True, "out/scotty_da3_scene.ply"),
+     "calibrated poses, 96 frames, no fit", True, "out/scotty_da3_scene.ply", True),
     ("RGB · DA3, 32 frames", "out/da3_scotty_posed/object.ply", "#2E9E63",
-     "calibrated poses, 32 frames, no fit", True, None),
+     "calibrated poses, 32 frames, no fit", True, None, False),
     ("RGB · DA3, pose-free", "out/da3_scotty/da3_aligned.ply", "#8FD3A8",
-     "estimated its own cameras, then Sim3", True, None),
-    ("3DGS · splatfacto", "out/scotty_gs.ply", "#B07BD8",
-     "Gaussian centres, calibrated poses, 96 frames", True, "out/scotty_gs_scene.ply"),
+     "estimated its own cameras, then Sim3", True, None, False),
+    # The rendered-depth cloud is the quantity that compares with DA3 and its numbers are in
+    # experiments/obj-orbit-360, but it is a haze that fills the cut-out, so it is not carried here.
+    # Export it with src.ext.obj_rgb.gs_render_cloud and pass --model to put it back.
+    ("3DGS · Gaussian centres", "out/scotty_gs.ply", "#B07BD8",
+     "the primitives themselves, 5.4k of them", True, "out/scotty_gs_scene.ply", False),
 ]
+
+
+def manifest_of(a, models):
+    return dict(title=a.title, subtitle=a.subtitle, models=models,
+                pedestal_radius=a.pedestal_radius, height_max=a.height_max, spacing=a.spacing)
+
+
+def bundle(out, models, files, manifest, with_scenes):
+    """A folder anyone can serve with a static server, with nothing of ours left running."""
+    fetch_vendor()
+    os.makedirs(os.path.join(out, "models"), exist_ok=True)
+    os.makedirs(os.path.join(out, "vendor"), exist_ok=True)
+    shutil.copy(os.path.join(HERE, "index.html"), os.path.join(out, "index.html"))
+    for name in VENDOR:
+        shutil.copy(os.path.join(HERE, "vendor", name), os.path.join(out, "vendor", name))
+
+    total = 0
+    for m in list(manifest["models"]):
+        if not with_scenes:
+            m["scene"] = None
+        for url in (m["url"], m["scene"]):
+            if not url:
+                continue
+            key = os.path.basename(url)
+            shutil.copy(files[key], os.path.join(out, "models", key))
+            total += os.path.getsize(files[key])
+    json.dump(manifest, open(os.path.join(out, "manifest.json"), "w"))
+
+    open(os.path.join(out, "README.txt"), "w").write(
+        "Point clouds of one object, seen by radar, LiDAR and a camera.\n\n"
+        "It has to be SERVED, not opened from the file system: ES modules and fetch do not work\n"
+        "over file://. Any static server will do. From this folder:\n\n"
+        "    python3 -m http.server 8422\n\n"
+        "then open http://localhost:8422/ . Nothing is sent anywhere; three.js is included.\n")
+    print(f"\nbundle -> {out}  ({total / 1e6:.0f} MB of clouds"
+          + ("" if with_scenes else ", scene layers left out; --bundle-scenes adds them") + ")")
+    print("  serve it with:  cd " + out + " && python3 -m http.server 8422")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -120,16 +173,18 @@ def main():
     ap.add_argument("--port", type=int, default=8422)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--open", action="store_true", help="open a browser on this machine")
+    ap.add_argument("--bundle", metavar="DIR", help="write a self-contained copy here instead of serving")
+    ap.add_argument("--bundle-scenes", action="store_true", help="--bundle: include the scene layers too")
     a = ap.parse_args()
 
     fetch_vendor()
 
     palette = ["#E8534E", "#F2B134", "#5B8DEF", "#3FBF7F", "#8FD3A8", "#B07BD8", "#4FC3C7"]
-    spec = ([(m.split("=")[0], m.split("=")[1], (m.split("=") + [palette[i % len(palette)]])[2], "", True, None)
+    spec = ([(m.split("=")[0], m.split("=")[1], (m.split("=") + [palette[i % len(palette)]])[2], "", True, None, True)
              for i, m in enumerate(a.model)] if a.model else DEFAULT)
 
     models, files = [], {}
-    for i, (name, path, colour, note, photo, scene) in enumerate(spec):
+    for i, (name, path, colour, note, photo, scene, on) in enumerate(spec):
         if not os.path.isfile(path):
             print(f"  ! missing, skipped: {path}  ({name})")
             continue
@@ -142,16 +197,18 @@ def main():
         elif scene:
             print(f"  ! scene missing: {scene}")
         models.append(dict(name=name, url=f"models/{key}", colour=colour, note=note,
-                           has_photo_colour=photo, on=True, scene=scene_url))
+                           has_photo_colour=photo, on=on, scene=scene_url))
         print(f"  {name:22s} {path}  ({os.path.getsize(path) / 1e6:.1f} MB)"
-              + (f"  + scene {os.path.getsize(scene) / 1e6:.0f} MB" if scene_url else ""))
+              + (f"  + scene {os.path.getsize(scene) / 1e6:.0f} MB" if scene_url else "")
+              + ("" if on else "   [off at start]"))
     if not models:
         raise SystemExit("no cloud found; run the export scripts first")
 
+    if a.bundle:
+        return bundle(a.bundle, models, files, manifest_of(a, models), a.bundle_scenes)
+
     Handler.files = files
-    Handler.manifest = json.dumps(dict(title=a.title, subtitle=a.subtitle, models=models,
-                                       pedestal_radius=a.pedestal_radius, height_max=a.height_max,
-                                       spacing=a.spacing)).encode()
+    Handler.manifest = json.dumps(manifest_of(a, models)).encode()
 
     with Server((a.host, a.port), Handler) as srv:
         url = f"http://{'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host}:{a.port}/"
