@@ -1,0 +1,352 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Scotty · radar / LiDAR / RGB</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #283039; --ink: #e6edf3; --dim: #8b949e;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #view { position: fixed; inset: 0; }
+  #panel { position: fixed; top: 12px; left: 12px; width: 288px; max-height: calc(100% - 24px);
+    overflow-y: auto; background: color-mix(in srgb, var(--panel) 93%, transparent);
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 12px; backdrop-filter: blur(8px); }
+  h1 { font-size: 13px; margin: 0 0 2px; letter-spacing: .01em; }
+  .sub { color: var(--dim); font-size: 11.5px; margin: 0 0 12px; }
+  .grp { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+  .grp > .lbl { color: var(--dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 7px; }
+  .model { display: flex; align-items: flex-start; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+  .model:hover { background: #ffffff0d; }
+  .model.off .name, .model.off .meta { opacity: .38; }
+  .sw { width: 11px; height: 11px; border-radius: 3px; margin-top: 3px; flex: 0 0 auto; border: 1px solid #ffffff2b; }
+  .model.off .sw { background: transparent !important; }
+  .name { font-weight: 600; font-size: 12.5px; }
+  .meta { color: var(--dim); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .solo { margin-left: auto; font-size: 10px; color: var(--dim); border: 1px solid var(--line);
+    border-radius: 4px; padding: 1px 5px; align-self: center; }
+  .solo:hover { color: var(--ink); border-color: var(--accent); }
+  .row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .row label { color: var(--dim); flex: 0 0 72px; font-size: 11.5px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .val { width: 38px; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; font-size: 11px; }
+  .segs { display: flex; gap: 4px; }
+  .segs button, .btns button { flex: 1; background: #ffffff0a; color: var(--dim); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 4px; font: inherit; font-size: 11.5px; cursor: pointer; }
+  .segs button[aria-pressed=true] { background: color-mix(in srgb, var(--accent) 20%, transparent);
+    color: var(--ink); border-color: var(--accent); }
+  .segs button:hover, .btns button:hover { color: var(--ink); }
+  .btns { display: flex; gap: 4px; }
+  .hint { color: var(--dim); font-size: 10.5px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; }
+  kbd { background: #ffffff12; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 10px; }
+  #load { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); color: var(--dim);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 11.5px; }
+  #load[hidden] { display: none; }
+  #hud { position: fixed; bottom: 12px; right: 12px; color: var(--dim); font-size: 10.5px; text-align: right;
+    font-variant-numeric: tabular-nums; pointer-events: none; }
+</style>
+
+<div id="view"></div>
+<div id="load">loading…</div>
+<div id="hud"></div>
+
+<div id="panel">
+  <h1 id="title">—</h1>
+  <p class="sub" id="subtitle">—</p>
+
+  <div class="grp"><div class="lbl">models</div><div id="models"></div></div>
+
+  <div class="grp"><div class="lbl">colour</div>
+    <div class="segs" id="colour">
+      <button data-v="height" aria-pressed="true">height</button>
+      <button data-v="model" aria-pressed="false">per model</button>
+      <button data-v="rgb" aria-pressed="false">photo</button>
+    </div>
+  </div>
+
+  <div class="grp"><div class="lbl">layout</div>
+    <div class="segs" id="layout">
+      <button data-v="overlay" aria-pressed="true">overlay</button>
+      <button data-v="row" aria-pressed="false">side by side</button>
+    </div>
+  </div>
+
+  <div class="grp"><div class="lbl">background</div>
+    <div class="segs" id="bg">
+      <button data-v="off" aria-pressed="true">the object only</button>
+      <button data-v="on" aria-pressed="false">+ the scene</button>
+    </div>
+  </div>
+
+  <div class="grp"><div class="lbl">display</div>
+    <div class="row"><label>point size</label><input id="size" type="range" min="0.5" max="6" step="0.1" value="1.6" autocomplete="off"><span class="val" id="sizeV">1.6</span></div>
+    <div class="row"><label>opacity</label><input id="opa" type="range" min="0.15" max="1" step="0.05" value="1" autocomplete="off"><span class="val" id="opaV">1.0</span></div>
+    <div class="row"><label>height cut</label><input id="zmax" type="range" min="0.1" max="2.6" step="0.05" value="2.6" autocomplete="off"><span class="val" id="zmaxV">2.6</span></div>
+  </div>
+
+  <div class="grp"><div class="lbl">camera</div>
+    <div class="btns">
+      <button data-cam="orbit">3/4</button><button data-cam="front">front</button>
+      <button data-cam="side">side</button><button data-cam="top">top</button>
+    </div>
+  </div>
+
+  <div class="hint">
+    <kbd>1</kbd>…<kbd>9</kbd> toggle a model · <kbd>shift</kbd>+number to solo · <kbd>c</kbd> colour ·
+    <kbd>l</kbd> layout · <kbd>b</kbd> background · <kbd>r</kbd> refit the view · drag to orbit,
+    scroll to zoom. Grid is 0.5 m; the dashed ring is the pedestal. The models are the 1.2 m cut-out
+    the numbers are measured on; the background is the scene around it, fetched when first switched on.
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/OrbitControls.js";
+import { PLYLoader } from "./vendor/PLYLoader.js";
+
+const cfg = await (await fetch("manifest.json")).json();
+document.getElementById("title").textContent = cfg.title;
+document.getElementById("subtitle").textContent = cfg.subtitle;
+document.title = cfg.title;
+
+const view = document.getElementById("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+view.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.02, 500);
+camera.up.set(0, 0, 1);                        // the data is z up
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+// --- ground: a 0.5 m grid and the pedestal ring, drawn once per model slot in the row layout
+function groundAt(x) {
+  const g = new THREE.Group(); g.position.x = x;
+  const grid = new THREE.GridHelper(4, 8, 0x30363d, 0x21262d);
+  grid.rotation.x = Math.PI / 2; g.add(grid);
+  const ring = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(
+      Array.from({ length: 97 }, (_, i) => {
+        const t = i / 96 * Math.PI * 2;
+        return new THREE.Vector3(cfg.pedestal_radius * Math.cos(t), cfg.pedestal_radius * Math.sin(t), 0.004);
+      })),
+    new THREE.LineDashedMaterial({ color: 0x8b949e, dashSize: 0.06, gapSize: 0.05 }));
+  ring.computeLineDistances(); g.add(ring);
+  return g;
+}
+const grounds = new THREE.Group(); scene.add(grounds);
+
+// --- one Points object per model
+const turbo = [[0.19,0.07,0.23],[0.27,0.40,0.86],[0.15,0.72,0.92],[0.26,0.95,0.55],
+               [0.71,0.99,0.21],[0.98,0.80,0.19],[0.98,0.42,0.09],[0.73,0.11,0.01]];
+function heightColour(z, zmax) {
+  const t = Math.max(0, Math.min(0.999, z / zmax)) * (turbo.length - 1);
+  const i = Math.floor(t), f = t - i, a = turbo[i], b = turbo[Math.min(i + 1, turbo.length - 1)];
+  return [a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1]), a[2] + f * (b[2] - a[2])];
+}
+
+const loader = new PLYLoader();
+const models = [];
+const loadEl = document.getElementById("load");
+
+// one cloud: its geometry plus the three colour sets the colour control swaps between
+async function loadCloud(url, colour, photo) {
+  const geo = await loader.loadAsync(url);
+  geo.computeBoundingBox();
+  const n = geo.attributes.position.count;
+  const pos = geo.attributes.position.array;
+  const own = geo.attributes.color ? geo.attributes.color.array : null;   // the PLY's own colours
+  const tint = new THREE.Color(colour);
+  const byHeight = new Float32Array(n * 3), byModel = new Float32Array(n * 3);
+  let zmax = 0, rmax = 0;
+  for (let i = 0; i < n; i++) {
+    zmax = Math.max(zmax, pos[3 * i + 2]);
+    rmax = Math.max(rmax, Math.hypot(pos[3 * i], pos[3 * i + 1]));
+    const c = heightColour(pos[3 * i + 2], cfg.height_max);
+    byHeight[3 * i] = c[0]; byHeight[3 * i + 1] = c[1]; byHeight[3 * i + 2] = c[2];
+    byModel[3 * i] = tint.r; byModel[3 * i + 1] = tint.g; byModel[3 * i + 2] = tint.b;
+  }
+  geo.setAttribute("color", new THREE.BufferAttribute(byHeight, 3));
+  const mat = new THREE.PointsMaterial({ size: 0.016, vertexColors: true, sizeAttenuation: true,
+                                         transparent: true, opacity: 1 });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  scene.add(pts);
+  return { geo, mat, pts, n, zmax, rmax, byHeight, byModel, byRGB: photo && own ? own : null };
+}
+
+for (const m of cfg.models) {
+  loadEl.textContent = `loading ${m.name}…`;
+  const c = await loadCloud(m.url, m.colour, m.has_photo_colour);
+  models.push({ ...m, ...c, bg: null, on: m.on !== false });
+}
+loadEl.hidden = true;
+
+// --- panel
+const panel = document.getElementById("models");
+models.forEach((m, k) => {
+  const el = document.createElement("div");
+  el.className = "model";
+  el.innerHTML = `<span class="sw"></span><span><span class="name"></span><br><span class="meta"></span></span>
+                  <span class="solo">solo</span>`;
+  el.querySelector(".sw").style.background = m.colour;
+  el.querySelector(".name").textContent = `${k + 1}. ${m.name}`;
+  el.querySelector(".meta").textContent = `${m.n.toLocaleString()} pts · to ${m.zmax.toFixed(2)} m · ${m.note}`;
+  el.addEventListener("click", e => {
+    if (e.target.classList.contains("solo")) models.forEach((o, j) => o.on = j === k);
+    else m.on = !m.on;
+    apply();
+  });
+  m.el = el; panel.appendChild(el);
+});
+
+// the height cut has to reach the tallest cloud loaded, not just the object's 2.6 m; the scene
+// clouds arrive later, so this runs again when they do
+let zTop = 2.6;
+function fitHeightCut() {
+  const was = zTop;
+  zTop = Math.max(2.6, ...models.flatMap(m => [m.zmax, m.bg ? m.bg.zmax : 0])) + 0.1;
+  const s = document.getElementById("zmax");
+  s.max = zTop.toFixed(1);
+  if (+s.value >= was - 0.01) {                 // it was at the top, so keep it there
+    s.value = zTop.toFixed(1); zcut = zTop;
+    document.getElementById("zmaxV").textContent = zTop.toFixed(1);
+  }
+}
+
+// The scene clouds are fetched the first time the background switch is turned on, not at start: they
+// are several times the size of the object cut-outs and are context, not something being compared.
+let bgOn = false, bgLoading = false;
+async function loadBackground() {
+  if (bgLoading) return;
+  bgLoading = true;
+  const want = models.filter(m => m.scene && !m.bg);
+  for (const m of want) {
+    loadEl.hidden = false;
+    loadEl.textContent = `loading the scene around ${m.name}…`;
+    m.bg = await loadCloud(m.scene, m.colour, m.has_photo_colour);
+    m.bg.pts.visible = false;
+    apply();
+  }
+  loadEl.hidden = true;
+  fitHeightCut();
+  apply();
+}
+
+let colourMode = "height", layout = "overlay";
+// read the sliders rather than hard-coding: a browser restores their DOM values on reload, and a
+// hard-coded variable would then disagree with what the panel shows
+let size = +document.getElementById("size").value,
+    opacity = +document.getElementById("opa").value,
+    zcut = +document.getElementById("zmax").value;
+
+function apply() {
+  const shown = models.filter(m => m.on);
+  grounds.clear();
+  if (layout === "row") shown.forEach((m, i) => grounds.add(groundAt(i * cfg.spacing)));
+  else grounds.add(groundAt(0));                       // one grid, not one per model stacked on itself
+  models.forEach(m => {
+    m.el.classList.toggle("off", !m.on);
+    m.pts.visible = m.on;
+    const i = shown.indexOf(m);
+    m.pts.position.x = layout === "row" && i >= 0 ? i * cfg.spacing : 0;
+    let src = colourMode === "model" ? m.byModel
+            : colourMode === "rgb" ? (m.byRGB || m.byModel) : m.byHeight;
+    if (m.geo.attributes.color.array !== src) {
+      m.geo.setAttribute("color", new THREE.BufferAttribute(src, 3));
+    }
+    m.geo.attributes.color.needsUpdate = true;
+    m.mat.size = 0.01 * size;
+    m.mat.opacity = opacity;
+    m.mat.needsUpdate = true;
+    if (m.bg) {                                 // the scene follows its model, dimmer and finer
+      m.bg.pts.visible = m.on && bgOn;
+      m.bg.pts.position.x = m.pts.position.x;
+      const bsrc = colourMode === "model" ? m.bg.byModel
+                 : colourMode === "rgb" ? (m.bg.byRGB || m.bg.byModel) : m.bg.byHeight;
+      if (m.bg.geo.attributes.color.array !== bsrc) {
+        m.bg.geo.setAttribute("color", new THREE.BufferAttribute(bsrc, 3));
+      }
+      m.bg.geo.attributes.color.needsUpdate = true;
+      m.bg.mat.size = 0.007 * size;
+      m.bg.mat.opacity = 0.55 * opacity;
+      m.bg.mat.needsUpdate = true;
+    }
+  });
+  // height cut, by a clipping plane so it costs nothing per point
+  renderer.clippingPlanes = zcut >= zTop - 0.01 ? []
+    : [new THREE.Plane(new THREE.Vector3(0, 0, -1), zcut)];
+  document.getElementById("hud").textContent =
+    shown.map(m => `${m.name} ${m.n.toLocaleString()}`).join("   ·   ") || "nothing shown";
+}
+
+function seg(id, set) {
+  const box = document.getElementById(id);
+  box.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    [...box.children].forEach(c => c.setAttribute("aria-pressed", c === b));
+    set(b.dataset.v); apply();
+  });
+  return v => { [...box.children].forEach(c => c.setAttribute("aria-pressed", c.dataset.v === v)); set(v); apply(); };
+}
+const setColour = seg("colour", v => colourMode = v);
+const setLayout = seg("layout", v => layout = v);
+const setBg = seg("bg", v => { bgOn = v === "on"; if (bgOn) loadBackground(); });
+
+function slider(id, set) {
+  const s = document.getElementById(id), v = document.getElementById(id + "V");
+  s.addEventListener("input", () => { set(+s.value); v.textContent = (+s.value).toFixed(1); apply(); });
+}
+slider("size", v => size = v); slider("opa", v => opacity = v); slider("zmax", v => zcut = v);
+for (const [id, v] of [["size", size], ["opa", opacity], ["zmax", zcut]])
+  document.getElementById(id + "V").textContent = v.toFixed(1);
+fitHeightCut();                                  // again later, when the scene clouds arrive
+
+// --- camera presets
+const views = { orbit: [4.0, -4.0, 2.8], front: [0, -5.4, 1.4], side: [5.4, 0, 1.4], top: [0.01, 0, 6.4] };
+function look(k) {
+  const on = models.filter(m => m.on);
+  const shown = on.length;
+  const span = layout === "row" ? (Math.max(shown, 1) - 1) * cfg.spacing / 2 : 0;
+  const v = views[k];
+  // pull back far enough for the widest cloud on screen: the presets are sized for the 1.2 m cut-out,
+  // and a scene layer reaches 15 m, which would otherwise put the camera inside it
+  const reach = Math.max(1.2, ...on.map(m => (bgOn && m.bg) ? m.bg.rmax : m.rmax), 1.2);
+  const f = (layout === "row" ? 1 + span / 2.2 : 1) * (reach / 1.2);
+  camera.position.set(span + v[0] * f, v[1] * f, v[2] * f);
+  controls.target.set(span, 0, 0.8);
+  controls.update();
+}
+document.querySelector(".btns").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (b) look(b.dataset.cam);
+});
+
+addEventListener("keydown", e => {
+  // e.key is "#" for shift+3, so read the physical digit off e.code instead
+  const digit = /^Digit([1-9])$/.exec(e.code);
+  if (digit && +digit[1] <= models.length) {
+    const k = +digit[1] - 1;
+    if (e.shiftKey) models.forEach((o, j) => o.on = j === k); else models[k].on = !models[k].on;
+    apply();
+  }
+  else if (e.key === "c") setColour({ height: "model", model: "rgb", rgb: "height" }[colourMode]);
+  else if (e.key === "l") setLayout(layout === "overlay" ? "row" : "overlay");
+  else if (e.key === "b") setBg(bgOn ? "off" : "on");
+  else if (e.key === "r" || e.key === "f") look("orbit");
+});
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+apply(); look("orbit");
+(function tick() { requestAnimationFrame(tick); controls.update(); renderer.render(scene, camera); })();
+</script>

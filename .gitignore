@@ -5,3 +5,9 @@ photos/
 __pycache__/
 *.pyc
 .DS_Store
+
+# experiment outputs (point clouds, extracted frames, splat runs)
+out/
+
+# three.js is fetched on first run by src/ext/viewer/serve.py, not committed
+src/ext/viewer/vendor/

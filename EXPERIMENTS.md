@@ -212,7 +212,7 @@ The main deliverable; needs section 6 first. Radar points projected into the ima
 
 ## 8. Orbits around objects
 
-*[obj-orbit-360](experiments/obj-orbit-360/README.md) · data partly recorded (10/29); poses, static-world filter, accumulation and a first close-up working (11/1); per-object numbers pending*
+*[obj-orbit-360](experiments/obj-orbit-360/README.md) · data partly recorded (10/29); poses, static-world filter, accumulation and a first close-up working (11/1); Scotty reconstructed from radar, LiDAR and camera in one object frame, with a viewer (11/7); the per-object table across car / tree / wall still pending*
 
 Session 2 orbited a Jeep (`15-49-40`, min 11–17), the Walking to the Sky sculpture (`16-12-38`, 5:30–9:40, rig often tilted up) and the Scotty statue (`16-22-36`, 2:59–3:45, partial). Session 3 went back to Scotty (`2026-11-03.17-01-12`, 30–165 s): two passes in opposite directions at 2.6 m, on which the pedestal repeats to 2 cm, and a six-turn spin (`17-18-46`) on which the odometry stays within 26° of the IMU. All long traces of that session went through the same chain as the Jeep and Scotty of 10/29, with the numbers per trace in the [log](notes/sessions/2026-11-03.md). Static radar points sit 1 cm from the LiDAR on the new orbit, and in a corridor CFAR points spread well outside the walls, probably multipath. A tree, a GHC wall and a small object with nothing behind it are still to record. Expected: the car bright from every side, the small object smeared by the 14° beam, the tree weak, the wall lit only when faced squarely.
 
@@ -225,6 +225,38 @@ The path from frames to a world frame now exists. Poses come from KISS-ICP on th
 ![Scotty up close: camera, LiDAR and radar](figures/closeup_scotty.png)
 
 *Scotty: camera at 4.0 and 2.2 m with the LiDAR scan and the radar detections projected (a, b), one LiDAR scan (c), the orbit's scans re-centred on the pedestal (d), the orbit's radar points from above (e), range–azimuth power at 4 m (f).*
+
+On 11/7 the same object was reconstructed from each sensor into one frame and the three compared
+directly. The frame is the object's own: x and y about the pedestal centre that the fixed-radius circle
+fit refines per scan, z above that scan's local ground. Nothing is registered between the clouds, so
+any gap between them is a disagreement rather than a fit residual. The LiDAR is the reference, 2.19 M
+points, 1.79 m tall.
+
+The two radar clouds fail in opposite directions. GRT's occupancy, accumulated over the orbit, covers
+the LiDAR completely — 99 % of LiDAR points have a GRT point within 5 cm — but only 22 % of its own
+points are that close to the LiDAR, and it fills the cut-out to its 2.6 m ceiling: a fog containing the
+object. The CFAR points are the mirror image, 94 % of them within 5 cm of a LiDAR surface and
+explaining 27 % of the object, a band at the radar's height with no shape. A score that only measures
+coverage of the reference would rank the fog first.
+
+The camera does much better than either, once it is told where it was. Depth Anything 3 run pose-free
+needs its similarity resolved against something, and the usual shortcuts all fail (a pedestal-radius
+fit degenerates on an accumulated disc; scaled ICP on one-directional fitness collapses to ×0.48 and
+reports a fake 1.2 cm); resolved properly against the LiDAR it reaches 1.94 cm symmetric Chamfer and
+stops 0.32 m short of the top. But the poses already exist — KISS-ICP composed with the rig's
+lidar-to-camera — and DA3 takes them: the result is then metric by construction, needs no fit, and
+scores 1.40 cm. The limit after that is coverage, not accuracy: the forward distance stays at 1.0–1.2 cm
+in every configuration while the reverse one moves, and the lever is frames, not pixels — 16 → 32 → 96
+frames takes the Chamfer 1.82 → 1.40 → 1.01 cm, while doubling the resolution makes it slightly worse.
+A splat (splatfacto, the same poses, no COLMAP) trains on the same 96 frames. Checking DA3's own camera
+estimate against the calibrated one also settled what the capture actually is: not an orbit at 2.6 m but
+two laps in opposite directions with the range wandering 1.9–4.8 m.
+
+![One object from radar, LiDAR and RGB](figures/obj_models_scotty_1103.png)
+
+*Scotty from each sensor in one object frame, no fit between them: GRT, CFAR, LiDAR, DA3 with the
+calibrated poses, DA3 pose-free, and the overlays. `src/ext/viewer/` serves the same clouds as a page
+that switches between them.*
 
 ---
 
