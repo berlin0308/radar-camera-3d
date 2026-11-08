@@ -224,16 +224,33 @@ role COLMAP's sparse cloud usually plays, so the chain stays camera-only.
 | Cloud | Points | Top | → LiDAR | LiDAR → | Within 5 cm | Chamfer |
 |---|---|---|---|---|---|---|
 | 3DGS, Gaussian centres | 5,403 | 1.63 m | 1.5 cm | 4.8 cm | 73 % / 52 % | 3.20 cm |
+| 3DGS, depth rendered at the training views | 366,700 | 2.20 m | 22.2 cm | 0.8 cm | 21 % / 83 % | 9.24 cm |
 | DA3 with the same poses, 96 frames | 79,734 | 1.73 m | 1.0 cm | 0.9 cm | 82 % / 88 % | 1.01 cm |
 
-That row is not the splat losing to DA3 at reconstruction so much as the two being different objects.
-A splat's Gaussians are anisotropic ellipsoids placed wherever they reduce the image loss, not samples
-of a surface: there are 5,403 of them on an object the LiDAR gives 76k points for, so the forward
-distance is good (1.5 cm — they do sit on the object) while the reverse one is four times DA3's, which
-is a statement about density, not about accuracy. Rendering the splat's depth at its own training views
-and unprojecting that is the comparable quantity, and `src/ext/obj_rgb/gs_render_cloud.py` does it;
-`ns-export pointcloud` cannot, because in nerfstudio 1.1.5 it asserts a pixel sampler that the
-full-image datamanager a splat uses does not have.
+Neither splat row is the splat losing at reconstruction; they are two different things being measured,
+and the pair is more informative than either.
+
+The **Gaussian centres** are anisotropic ellipsoids placed wherever they reduce the image loss, not
+samples of a surface: 5,403 of them on an object the LiDAR gives 76k points for. The forward distance
+is good — 1.5 cm, they do sit on the object — while the reverse one is four times DA3's, which is a
+statement about density, not accuracy.
+
+The **rendered depth** is the quantity that is comparable with DA3, since it is the same operation DA3's
+cloud goes through. `ns-export pointcloud` cannot produce it for a splat in nerfstudio 1.1.5 (it asserts
+a pixel sampler that the full-image datamanager a splat uses does not have), so
+`src/ext/obj_rgb/gs_render_cloud.py` renders each training view and unprojects it. The result covers the
+LiDAR better than anything else here — 0.8 cm in the reverse direction, 83 % within 5 cm — and is at the
+same time the second-worst cloud in the table forwards, at 22.2 cm with only 21 % within 5 cm. It is
+the GRT failure again, from a completely different method: a model that is excellent at predicting
+images is not thereby a model of a surface. 35 % of its points inside the cut-out sit beyond the
+pedestal radius, a median 41 cm from any LiDAR point, and the error grows with height (14.9 cm median
+at 0.25–0.8 m, 35.8 cm at 1.3–1.8 m, 78.1 cm above that).
+
+The cause is visible in how the depth is formed: splatfacto renders the alpha-weighted mean depth along
+each ray, so at a silhouette edge it returns a value *between* the object and whatever is behind it, and
+a semi-transparent Gaussian anywhere along the ray drags it. This was run at one setting
+(`--accum 0.95`) and not tuned; a higher accumulation cut, or a median rather than a mean along the ray,
+should clean it up and the number should be expected to move.
 
 
 ## A viewer for all of it (2026-11-07)
@@ -302,9 +319,9 @@ under a one-directional score.
 - The static filter's cost in coverage (81 → 69 % on the Jeep): a Doppler-only ego estimate per frame, or a shorter velocity smoothing, might keep more of the edge-of-view points
 - Frames, not pixels, are what the camera reconstruction is short of: 96 of the window's 4,050 frames
   were used and the curve had not flattened. The next run should push that and find where it does.
-- The splat is scored on its Gaussian centres, which measures the representation rather than the
-  geometry. The rendered-depth cloud (`src/ext/obj_rgb/gs_render_cloud.py`) is the comparable quantity
-  and its number is not in the table yet.
+- The splat's rendered depth was run at one accumulation threshold and not tuned. Taking the median
+  depth along the ray rather than the alpha-weighted mean is the obvious next thing to try, and would
+  test whether the 22.2 cm forward distance is the method or the setting.
 - GRT's threshold was raised from the 0.5 used for scoring to 0.9 before the cloud concentrated on the
   object at all. Log-odds fusion across frames, which `GRT.md` recommends over a hard threshold, has
   not been tried on this accumulation.
