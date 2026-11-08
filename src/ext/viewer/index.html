@@ -227,17 +227,17 @@ let bgOn = false, bgLoading = false;
 async function loadBackground() {
   if (bgLoading) return;
   bgLoading = true;
-  const want = models.filter(m => m.scene && !m.bg);
+  // only what is on screen: fetching all of them would be 40 MB to show one model's surroundings
+  const want = models.filter(m => m.on && m.scene && !m.bg);
   for (const m of want) {
     loadEl.hidden = false;
     loadEl.textContent = `loading the scene around ${m.name}…`;
     m.bg = await loadCloud(m.scene, m.colour, m.has_photo_colour);
     m.bg.pts.visible = false;
-    apply();
   }
   loadEl.hidden = true;
-  fitHeightCut();
-  apply();
+  bgLoading = false;
+  if (want.length) { fitHeightCut(); apply(); }
 }
 
 let colourMode = "height", layout = "overlay";
@@ -285,6 +285,8 @@ function apply() {
     : [new THREE.Plane(new THREE.Vector3(0, 0, -1), zcut)];
   document.getElementById("hud").textContent =
     shown.map(m => `${m.name} ${m.n.toLocaleString()}`).join("   ·   ") || "nothing shown";
+  // a model turned on while the background is up needs its own scene fetched now
+  if (bgOn && !bgLoading && models.some(m => m.on && m.scene && !m.bg)) loadBackground();
 }
 
 function seg(id, set) {

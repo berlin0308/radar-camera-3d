@@ -269,9 +269,10 @@ by re-centring each scan on the pedestal, which takes the odometry's jitter out 
 put it straight into anything further away, so the LiDAR and radar background has to come from the
 world-frame accumulation in `data/recon/<trace>/` instead (`src/ext/obj_lidar/export_scene.py`), where
 no per-scan correction is applied. DA3 and the splat have no such correction — they are single world
-models — so for them the scene is the same export with a wider radius. The LiDAR scene is the layer
-`accumulate` keeps, 0.3–2.5 m above the ground within 15 m of the path: a slab, with no ground and no
-roofline.
+models — so for them the scene is the same export with a wider radius. The radar has one too, from the same
+accumulation with `--scene`, which widens the cut-out and drops the re-centring for exactly that reason.
+The LiDAR scene is the layer `accumulate` keeps, 0.3–2.5 m above the ground within 15 m of the path: a
+slab, with no ground and no roofline.
 
 ```bash
 .venv/bin/python -m src.ext.viewer.serve --port 8422        # then http://localhost:8422/
@@ -343,8 +344,9 @@ under a one-directional score.
   not been tried on this accumulation.
 - The LiDAR scene layer is the 0.3–2.5 m slab `accumulate` keeps. A viewer background with the ground
   and the building tops needs that cut widened upstream.
-- The radar has no scene layer: GRT would have to be accumulated at a wider radius, and at 0.9 it is
-  already a fog at 1.2 m.
+- GRT's scene layer is accumulated at p > 0.9 out to 15 m, which is the same threshold the object
+  cloud uses; the surroundings may well want a different one, since a wall at 10 m and a statue at 3 m
+  are not the same detection problem.
 
 ## B-roll to capture (for the 5-minute video)
 - [ ] Phone video of each orbit from a second person
@@ -422,6 +424,9 @@ CUDA_VISIBLE_DEVICES=1 ~/miniconda3/envs/kplanes/bin/ns-export gaussian-splat \
 # the scene layers, and the figures
 .venv/bin/python -m src.ext.obj_lidar.export_scene 2026-11-03.17-01-12 --centre -13.07 -9.86 \
     --source lidar --out out/scotty_lidar_scene.ply
+.venv/bin/python -m src.ext.obj_radar.export_ply $TRACE --dump /data/berlin/grt/2026-11-03.17-01-12 \
+    --centre -13.20 -9.87 --orbit 30 165 --pedestal-radius 0.39 --stride 4 --threshold 0.9 \
+    --scene --radius 15 --z-max 4.0 --voxel 0.08 --out out/scotty_grt_scene.ply
 .venv/bin/python -m src.ext.viewer.still --out out/scotty_models.png
 .venv/bin/python -m src.ext.viewer.serve --port 8422
 ```

@@ -19,6 +19,12 @@ a shape. It is there as the baseline the model is supposed to beat, not as a rec
 
 Per scan the object's centre is refined on its pedestal exactly as the LiDAR export does, and the local
 ground comes from the LiDAR points of that instant (the GRT grid has no ground fit of its own).
+
+--scene widens the cut-out and drops the per-scan re-centring, for the background layer of the viewer.
+The re-centring is what takes the odometry's jitter out of the object, but it is a correction measured
+on the pedestal: applied to something 10 m away it would move that thing by the same amount for no
+reason. So the scene is accumulated in the world frame and only shifted, once, so that the refined
+pedestal centre is the origin — the same thing `src.ext.obj_lidar.export_scene` does for the LiDAR.
 """
 import argparse, os
 
@@ -46,6 +52,8 @@ def main():
     ap.add_argument("--centre", type=float, nargs=2, required=True)
     ap.add_argument("--orbit", type=float, nargs=2, required=True)
     ap.add_argument("--radius", type=float, default=1.2, help="cut-out radius (m)")
+    ap.add_argument("--scene", action="store_true",
+                    help="the surroundings instead of the object: world frame, no per-scan re-centring")
     ap.add_argument("--slice", type=float, nargs=2, default=(0.45, 1.0))
     ap.add_argument("--pedestal-radius", type=float, default=None)
     ap.add_argument("--threshold", type=float, default=0.5, help="GRT occupancy probability")
@@ -120,10 +128,17 @@ def main():
                 continue
             xyz = G.xyz(cells)
         h = xyz[:, 2] - ground_z
-        m = (np.hypot(*(xyz[:, :2] - s.c).T) < a.radius) & (h > a.z_min) & (h < a.z_max)
-        if not m.any():
-            continue
-        pts.append((xyz[m, :2] - s.c) @ s.T[:2, :2].T)
+        if a.scene:
+            w = s.world_xy(xyz[:, :2])                        # no re-centring: it is a pedestal fit
+            m = (np.hypot(*(w - s.world_xy(s.c)).T) < a.radius) & (h > a.z_min) & (h < a.z_max)
+            if not m.any():
+                continue
+            pts.append(w[m])
+        else:
+            m = (np.hypot(*(xyz[:, :2] - s.c).T) < a.radius) & (h > a.z_min) & (h < a.z_max)
+            if not m.any():
+                continue
+            pts.append((xyz[m, :2] - s.c) @ s.T[:2, :2].T)
         hts.append(h[m])
 
     if a.source == "cfar":
@@ -143,10 +158,14 @@ def main():
         raise SystemExit("nothing landed on the object; check --centre, --threshold and --orbit")
 
     xy = np.concatenate(pts); h = np.concatenate(hts)
+    if a.scene:
+        c_ref = np.array([r[1] for r in scans]).mean(0)       # one shift, so the pedestal is the origin
+        xy = xy - c_ref
+        print(f"scene: world frame, shifted so the refined centre {c_ref.round(2)} is the origin")
     xyz = np.column_stack([xy, h])
 
     import matplotlib
-    rgb = (matplotlib.colormaps["turbo"](np.clip(h / 2.2, 0, 1))[:, :3] * 255).astype(np.uint8)
+    rgb = (matplotlib.colormaps["turbo"](np.clip(h / (2.5 if a.scene else 2.2), 0, 1))[:, :3] * 255).astype(np.uint8)
 
     n_raw = len(xyz)
     if a.voxel > 0:

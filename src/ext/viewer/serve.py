@@ -67,7 +67,7 @@ def fetch_vendor():
 # that switch is first turned on, because it is 40 MB that the comparison does not need.
 DEFAULT = [
     ("radar · GRT", "out/scotty_radar.ply", "#E8534E",
-     "occupancy p > 0.9, first return per column", False, None, False),
+     "occupancy p > 0.9, first return per column", False, "out/scotty_grt_scene.ply", False),
     ("radar · CFAR", "out/scotty_radar_cfar.ply", "#F2B134",
      "signal chain only, no elevation", False, "out/scotty_radar_scene.ply", False),
     ("LiDAR", "out/scotty_lidar_rgb.ply", "#5B8DEF",
