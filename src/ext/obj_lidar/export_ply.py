@@ -109,6 +109,9 @@ def main():
     ap.add_argument("--slice", type=float, nargs=2, default=(0.45, 1.0), help="pedestal slice the centre is fitted on")
     ap.add_argument("--pedestal-radius", type=float, default=None)
     ap.add_argument("--z-min", type=float, default=0.05, help="drop points below this height above ground")
+    ap.add_argument("--z-max", type=float, default=None,
+                    help="drop points above this height above ground; a cylinder set against a building"
+                         " catches its overhang, which is not the object")
     ap.add_argument("--stride", type=int, default=1, help="use every n-th scan")
     ap.add_argument("--voxel", type=float, default=0.005, help="downsample grid (m); 0 keeps every point")
     ap.add_argument("--colour", choices=("height", "photo"), default="height")
@@ -153,6 +156,8 @@ def main():
         if s.fit < 0.3 or s.n_slice < 200:
             continue
         cut = s.cut(a.radius) & (s.h > a.z_min)
+        if a.z_max is not None:
+            cut &= s.h < a.z_max
         if not cut.any():
             continue
         pts.append((s.xyz[cut, :2] - s.c) @ s.T[:2, :2].T)      # re-centred, world orientation

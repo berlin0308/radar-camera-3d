@@ -1,6 +1,6 @@
 # 360° orbits: how object size and material change what the radar sees
 
-**Status:** Data partly recorded (2026-10-29, 2026-11-03); poses, static-world filter and accumulation working (2026-11-01); Scotty reconstructed from all three sensors in one object frame and a viewer to compare them (2026-11-07); the per-object table across car / tree / wall still pending
+**Status:** Data partly recorded (2026-10-29, 2026-11-03, 2026-11-05); poses, static-world filter and accumulation working (2026-11-01); Scotty reconstructed from all three sensors in one object frame and a viewer to compare them (2026-11-07); the per-object table across car / tree / wall still pending
 
 ## Question
 For a car, a small metal object, a tree or sculpture and a building wall: how much of each object does the radar capture, compared with the 128-beam LiDAR?
@@ -300,6 +300,105 @@ happens while standing and spinning. `python -m src.recon.poses data/raw/2026-11
 `python -m src.recon.accumulate data/raw/2026-11-03.17-07-11 --start 0 --seconds 210`.*
 
 
+## The same statue two days later, and a loop that closes (2026-11-08)
+
+Session 4 (2026-11-05) went back to the Scotty plaza with the rig unchanged, so the 11/03 solve still
+applies. Two of its traces are tagged for this experiment in the session note: `16-38-55`, a second
+orbit of the statue, and `16-25-42`, a 122 m loop of the whole plaza. Neither had been through the
+chain. Both answer a question the earlier traces could not.
+
+### Repeatability: two captures of one statue agree to 0.76 cm
+
+`16-38-55` is a single lap, 436° about the statue, in daylight at 0.22 m/s and as close as 0.99 m —
+against 11/03's two laps in opposite directions at dusk, 1.93–4.82 m out. Different day, different
+light, different path. Fitted onto the 11/03 cloud with the scale locked near 1 and only yaw and
+translation free:
+
+| | |
+|---|---|
+| scale, yaw, translation | ×1.000, 0.0°, 8 cm |
+| symmetric trimmed Chamfer | **0.76 cm** |
+| 11/05 → 11/03 | median 0.8 cm, 81 % within 5 cm |
+| 11/03 → 11/05 | median 0.6 cm, 95 % within 5 cm, 100 % within 10 cm |
+| height | 1.74 m against 1.79 m |
+
+**This is the number every other number here should be read against.** The camera, given the poses and
+96 frames, reaches 1.01 cm; the reference's own repeatability across two independent captures is
+0.76 cm. DA3 is therefore within about 2.5 mm of the floor this comparison can measure, and pushing it
+further would mostly be measuring the LiDAR pipeline's own scatter.
+
+The odometry is also plainly better on 11/05: path 55.2 m with a 2.88 m start-to-end gap (5.2 %) and
+yaw +61° against the IMU's +70°, where 11/03 gave 15.4 % and 14°. What is worse is the pedestal fit's
+own scatter, 0.23 m against 0.11 m, and the likely reason is the closer path: at 1 m the LiDAR sees a
+short arc of the pedestal per scan and a fixed-radius circle through it is weakly constrained.
+
+Two practical notes came out of the export. The centre guess matters more than CONTRIBUTING's "good to
+0.5 m" suggests: starting from the trajectory centroid, 0.9 m off, only 66 % of scans passed the fit at
+an inlier share of 0.78; restarted from the refined centre it was 96 % and 0.87. And a cylinder set
+against a building catches the building: 631 points of 2.3 M sat between 4 and 8 m, the alcove's
+overhang, which is why `export_ply` now takes `--z-max`.
+
+![KISS-ICP on the 11/05 orbit](../../figures/poses_scotty_1105.png)
+
+*`16-38-55`, the whole 153 s. `python -m src.recon.poses data/raw/2026-11-05.16-38-55`.*
+
+### The drift measurement this experiment has been asking for
+
+`16-25-42` is the trace that closes a lap on a marked spot, which the open items have wanted since
+2026-11-01. It is not inferred from the trajectory: the first and last camera frames show the same
+laptop on the same table.
+
+| | path | start-to-end | usable as drift? |
+|---|---|---|---|
+| **plaza loop, 11/05** | 121.9 m | **0.62 m (0.5 %)** | yes — closed, on a marked spot |
+| the Cut, 11/03 | 191.5 m | 15.56 m | no — does not return to its start |
+| Scotty, 11/03 | 79.2 m | 12.22 m | no — not a closed loop |
+
+**0.5 % of path, and yaw to 13° over two full turns** (+734° against the IMU's +721°). That number can
+now be carried to the other traces as the odometry's accuracy under similar conditions, and it is
+consistent with what the accumulation shows: the plaza's walls appear as single lines in the LiDAR
+layer rather than doubled, which 0.62 m of closure error would not smear.
+
+### Coverage follows enclosure, not walking speed
+
+With four traces the two variables finally separate. In the earlier three they were confounded — the
+open scene was also the fast one.
+
+| Trace | Scene | Speed | Coverage, filtered |
+|---|---|---|---|
+| `16-38-55` Scotty, 11/05 | an object in an enclosed courtyard | 0.22 m/s | **86 %** |
+| `16-25-42` plaza loop | a square enclosed by buildings | 0.39 m/s | **84 %** |
+| `17-01-12` Scotty, 11/03 | the same courtyard | 0.30 m/s | 71 % |
+| `17-07-11` the Cut | open lawn | 0.74 m/s | **23 %** |
+
+The plaza is walked 1.8× faster than the 11/05 orbit for the same coverage; the Cut is 1.9× faster than
+the plaza for a quarter of it. What decides it is whether there are vertical surfaces within 15 m, not
+how fast the rig moves. The accuracy is flat across all four: 0.00–0.02 m median to the LiDAR layer.
+
+![Radar and LiDAR over the plaza](../../figures/accum_plaza_1105.png)
+
+*`16-25-42`, the whole 256 s: all CFAR points, after the static-world filter, and the LiDAR layer. The
+radar fills the square as concentric range arcs — one lap contributes a ring from each position — while
+the LiDAR gives the four building fronts. The arcs are not floating: the median distance to a LiDAR
+surface is 1 cm and 93 % are within half a metre, the plaza being full of planters, trees and benches.
+But the picture is much fuller than the reference, which is the same "covers well, sits badly" problem
+GRT showed on the statue, at another scale.
+`python -m src.recon.accumulate data/raw/2026-11-05.16-25-42 --start 0 --seconds 256`.*
+
+![KISS-ICP on the plaza loop](../../figures/poses_plaza_1105.png)
+
+*The loop and the LiDAR map built with it; the heading steps are the operator turning to look around.
+`python -m src.recon.poses data/raw/2026-11-05.16-25-42`.*
+
+### Two corrections to the session log
+
+`notes/sessions/2026-11-05.md` ends the entry with "Still not recorded: anything after dark", and
+`SESSIONS.md` lists nine traces for that session. There are ten on disk:
+`2026-11-05.19-11-08`, 21.6 minutes beginning at 19:11, all four streams complete and six invalid radar
+frames in 25,836. It is the longest trace in the dataset and the only one after dark. Nothing has been
+run on it.
+
+
 ## A viewer for all of it (2026-11-07)
 
 `src/ext/viewer/serve.py` serves `index.html`, a three.js page (r160, vendored, so it works offline)
@@ -381,6 +480,8 @@ not a single distance but the pair: the radar's two failures are opposite, and e
 under a one-directional score.
 
 ## Open items
+- ~~Drift on the orbit itself is to be measured by closing a lap next time~~ — done on 2026-11-05:
+  0.62 m over 121.9 m, 0.5 %, on a marked spot (the plaza loop above).
 - Odometry yaw still slips ~150° over the Jeep window while standing still and spinning (785–890 s); a loop closure or the IMU as a yaw prior would fix it. The orbit itself is unaffected. A six-turn spin in a structure-rich atrium (`2026-11-03.17-18-46`) stays within 26°, so the open lot may be the cause rather than the spin.
 - Decide how to segment each object in the LiDAR layer (the Jeep is the cluster at the orbit centre)
 - The LiDAR cut-out of an object is only as sharp as the odometry's yaw; the pedestal fit fixes the position, not the rotation. Registering the scans on the object itself (ICP on the cut-out) is the next step for a crisp model.

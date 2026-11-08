@@ -252,6 +252,17 @@ A splat (splatfacto, the same poses, no COLMAP) trains on the same 96 frames. Ch
 estimate against the calibrated one also settled what the capture actually is: not an orbit at 2.6 m but
 two laps in opposite directions with the range wandering 1.9–4.8 m.
 
+On 11/08 the two Scotty-plaza traces of 11/05 went through the same chain, and they settle two things
+the earlier captures could not. The statue was orbited again, in daylight, on a different path; fitted
+onto the 11/03 reconstruction with the scale locked, the two agree to a **0.76 cm** symmetric Chamfer.
+That is the floor this whole comparison can measure, and it puts the camera's 1.01 cm within about
+2.5 mm of it. The other trace is a 122 m loop of the plaza that starts and ends at the same marked
+spot — the first closed lap in the dataset — and it closes to **0.62 m, 0.5 % of path**, with yaw to
+13° over two full turns. Four traces now also separate what drives the radar's coverage: the plaza is
+walked 1.8x faster than the 11/05 orbit for the same 84–86 %, while the open lawn of the Cut, only
+1.9x faster again, gives 23 %. Coverage follows whether there are vertical surfaces within 15 m, not
+how fast the rig moves; the accuracy is flat at 0–2 cm across all four.
+
 ![One object from radar, LiDAR and RGB](figures/obj_models_scotty_1103.png)
 
 *Scotty from each sensor in one object frame, no fit between them: GRT, CFAR, LiDAR, DA3 with the
