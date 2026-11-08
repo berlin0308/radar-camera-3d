@@ -59,39 +59,47 @@ def fetch_vendor():
             raise SystemExit(f"\ncould not fetch {url}: {e}\n"
                              f"Download the three files in VENDOR into {d} by hand and run again.")
 
-# name, path, colour, note, whether the PLY's own colours are photographic ("photo" mode), the scene
-# cloud that belongs to it, and whether it is on when the page opens. It opens on the LiDAR and the
-# best camera reconstruction, which is the comparison worth seeing first; GRT and the splat's rendered
-# depth is a fog that fills the cut-out and hides everything behind it, so it waits for a click. The models are the 1.2 m cut-out about the pedestal, which is what
-# every number is measured on; the scene is what surrounds it, behind one switch and fetched only when
-# that switch is first turned on, because it is 40 MB that the comparison does not need.
-DEFAULT = [
-    ("radar · GRT", "out/scotty_radar.ply", "#E8534E",
-     "occupancy p > 0.9, first return per column", False, "out/scotty_grt_scene.ply", False),
-    ("radar · CFAR", "out/scotty_radar_cfar.ply", "#F2B134",
-     "signal chain only, no elevation", False, "out/scotty_radar_scene.ply", False),
-    ("LiDAR", "out/scotty_lidar_rgb.ply", "#5B8DEF",
-     "Ouster OS-0-128, the reference; 80% camera-coloured", True, "out/scotty_lidar_scene.ply", True),
-    ("RGB · DA3, 96 frames", "out/da3_posed_n96_r504/object.ply", "#3FBF7F",
-     "calibrated poses, 96 frames, no fit", True, "out/scotty_da3_scene.ply", True),
-    ("RGB · DA3, 32 frames", "out/da3_scotty_posed/object.ply", "#2E9E63",
-     "calibrated poses, 32 frames, no fit", True, None, False),
-    ("RGB · DA3, pose-free", "out/da3_scotty/da3_aligned.ply", "#8FD3A8",
-     "estimated its own cameras, then Sim3", True, None, False),
-    # The rendered-depth cloud is the quantity that compares with DA3 and its numbers are in
-    # experiments/obj-orbit-360, but it is a haze that fills the cut-out, so it is not carried here.
-    # Export it with src.ext.obj_rgb.gs_render_cloud and pass --model to put it back.
-    ("3DGS · Gaussian centres", "out/scotty_gs.ply", "#B07BD8",
-     "the primitives themselves, 5.4k of them", True, "out/scotty_gs_scene.ply", False),
+# A scene is one capture and the clouds built from it. Each model is
+# (name, path, colour, note, whether the PLY's own colours are photographic, its scene cloud, on at
+# start). The models are the cut-out every number is measured on; the scene cloud is what surrounds
+# it, behind one switch and fetched only when that switch is first used.
+SCENES = [
+    dict(key="scotty",
+         title="Scotty · 2026-11-03.17-01-12 · 30–165 s",
+         subtitle="one object from radar, LiDAR and RGB, in the object's own frame — no fit between them",
+         pedestal_radius=0.39, height_max=2.2, spacing=2.6, grid=4.0,
+         models=[
+             ("radar · GRT", "out/scotty_radar.ply", "#E8534E",
+              "occupancy p > 0.9, first return per column", False, "out/scotty_grt_scene.ply", False),
+             ("radar · CFAR", "out/scotty_radar_cfar.ply", "#F2B134",
+              "signal chain only, no elevation", False, "out/scotty_radar_scene.ply", False),
+             ("LiDAR", "out/scotty_lidar_rgb.ply", "#5B8DEF",
+              "Ouster OS-0-128, the reference; 80% camera-coloured", True, "out/scotty_lidar_scene.ply", True),
+             ("RGB · DA3, 96 frames", "out/da3_posed_n96_r504/object.ply", "#3FBF7F",
+              "calibrated poses, 96 frames, no fit", True, "out/scotty_da3_scene.ply", True),
+             ("RGB · DA3, 32 frames", "out/da3_scotty_posed/object.ply", "#2E9E63",
+              "calibrated poses, 32 frames, no fit", True, None, False),
+             ("RGB · DA3, pose-free", "out/da3_scotty/da3_aligned.ply", "#8FD3A8",
+              "estimated its own cameras, then Sim3", True, None, False),
+             ("3DGS · Gaussian centres", "out/scotty_gs.ply", "#B07BD8",
+              "the primitives themselves, 5.4k of them", True, "out/scotty_gs_scene.ply", False),
+         ]),
+    dict(key="cut",
+         title="The Cut · 2026-11-03.17-07-11 · 192 m loop",
+         subtitle="an open lawn instead of an object — world frame, KISS-ICP poses, nothing re-centred",
+         pedestal_radius=0.0, height_max=2.5, spacing=70.0, grid=60.0,
+         models=[
+             ("LiDAR", "out/cut_lidar_scene.ply", "#5B8DEF",
+              "the 0.3–2.5 m layer within 35 m of the path", False, None, True),
+             ("radar · GRT", "out/cut_grt_scene.ply", "#E8534E",
+              "occupancy p > 0.9, 414 scans of the loop", False, None, True),
+             ("radar · CFAR", "out/cut_cfar_scene.ply", "#F2B134",
+              "static-filtered, drawn flat at the radar's height", False, None, False),
+         ]),
 ]
 
 
-def manifest_of(a, models):
-    return dict(title=a.title, subtitle=a.subtitle, models=models,
-                pedestal_radius=a.pedestal_radius, height_max=a.height_max, spacing=a.spacing)
-
-
-def bundle(out, models, files, manifest, with_scenes):
+def bundle(out, scenes, files, manifest, with_scenes):
     """A folder anyone can serve with a static server, with nothing of ours left running."""
     fetch_vendor()
     os.makedirs(os.path.join(out, "models"), exist_ok=True)
@@ -101,7 +109,8 @@ def bundle(out, models, files, manifest, with_scenes):
         shutil.copy(os.path.join(HERE, "vendor", name), os.path.join(out, "vendor", name))
 
     total = 0
-    for m in list(manifest["models"]):
+    for sc in manifest["scenes"]:
+      for m in sc["models"]:
         if not with_scenes:
             m["scene"] = None
         for url in (m["url"], m["scene"]):
@@ -170,6 +179,9 @@ def main():
     ap.add_argument("--pedestal-radius", type=float, default=0.39)
     ap.add_argument("--height-max", type=float, default=2.2, help="top of the turbo height colour map")
     ap.add_argument("--spacing", type=float, default=2.6, help="gap between models in the side-by-side layout (m)")
+    ap.add_argument("--grid", type=float, default=4.0, help="ground grid size (m)")
+    ap.add_argument("--scene-key", dest="scene", action="append",
+                    help="serve only these scenes, by key; repeatable")
     ap.add_argument("--port", type=int, default=8422)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--open", action="store_true", help="open a browser on this machine")
@@ -180,41 +192,58 @@ def main():
     fetch_vendor()
 
     palette = ["#E8534E", "#F2B134", "#5B8DEF", "#3FBF7F", "#8FD3A8", "#B07BD8", "#4FC3C7"]
-    spec = ([(m.split("=")[0], m.split("=")[1], (m.split("=") + [palette[i % len(palette)]])[2], "", True, None, True)
-             for i, m in enumerate(a.model)] if a.model else DEFAULT)
+    if a.model:
+        scenes_in = [dict(key="custom", title=a.title, subtitle=a.subtitle,
+                          pedestal_radius=a.pedestal_radius, height_max=a.height_max,
+                          spacing=a.spacing, grid=a.grid,
+                          models=[(m.split("=")[0], m.split("=")[1],
+                                   (m.split("=") + [palette[i % len(palette)]])[2], "", True, None, True)
+                                  for i, m in enumerate(a.model)])]
+    else:
+        scenes_in = [sc for sc in SCENES if not a.scene or sc["key"] in a.scene]
+        if not scenes_in:
+            raise SystemExit(f"no scene named {a.scene}; have " + ", ".join(sc["key"] for sc in SCENES))
 
-    models, files = [], {}
-    for i, (name, path, colour, note, photo, scene, on) in enumerate(spec):
-        if not os.path.isfile(path):
-            print(f"  ! missing, skipped: {path}  ({name})")
-            continue
-        key = f"m{i}.ply"
-        files[key] = os.path.abspath(path)
-        scene_url = None
-        if scene and os.path.isfile(scene):
-            files[f"s{i}.ply"] = os.path.abspath(scene)
-            scene_url = f"models/s{i}.ply"
-        elif scene:
-            print(f"  ! scene missing: {scene}")
-        models.append(dict(name=name, url=f"models/{key}", colour=colour, note=note,
-                           has_photo_colour=photo, on=on, scene=scene_url))
-        print(f"  {name:22s} {path}  ({os.path.getsize(path) / 1e6:.1f} MB)"
-              + (f"  + scene {os.path.getsize(scene) / 1e6:.0f} MB" if scene_url else "")
-              + ("" if on else "   [off at start]"))
-    if not models:
+    scenes, files = [], {}
+    for si, sc in enumerate(scenes_in):
+        models = []
+        print(f"\n{sc['title']}")
+        for mi, (name, path, colour, note, photo, scene, on) in enumerate(sc["models"]):
+            if not os.path.isfile(path):
+                print(f"  ! missing, skipped: {path}  ({name})")
+                continue
+            key = f"m{si}_{mi}.ply"
+            files[key] = os.path.abspath(path)
+            scene_url = None
+            if scene and os.path.isfile(scene):
+                files[f"s{si}_{mi}.ply"] = os.path.abspath(scene)
+                scene_url = f"models/s{si}_{mi}.ply"
+            elif scene:
+                print(f"  ! scene missing: {scene}")
+            models.append(dict(name=name, url=f"models/{key}", colour=colour, note=note,
+                               has_photo_colour=photo, on=on, scene=scene_url))
+            print(f"  {name:24s} {path}  ({os.path.getsize(path) / 1e6:.1f} MB)"
+                  + (f"  + scene {os.path.getsize(scene) / 1e6:.0f} MB" if scene_url else "")
+                  + ("" if on else "   [off at start]"))
+        if models:
+            scenes.append({**{k: v for k, v in sc.items() if k != "models"}, "models": models})
+    if not scenes:
         raise SystemExit("no cloud found; run the export scripts first")
 
+    manifest = dict(scenes=scenes)
+
     if a.bundle:
-        return bundle(a.bundle, models, files, manifest_of(a, models), a.bundle_scenes)
+        return bundle(a.bundle, scenes, files, manifest, a.bundle_scenes)
 
     Handler.files = files
-    Handler.manifest = json.dumps(manifest_of(a, models)).encode()
+    Handler.manifest = json.dumps(manifest).encode()
 
     with Server((a.host, a.port), Handler) as srv:
         url = f"http://{'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host}:{a.port}/"
         obj = sum(os.path.getsize(files[k]) for k in files if k.startswith("m")) / 1e6
-        sc = sum(os.path.getsize(files[k]) for k in files if k.startswith("s")) / 1e6
-        print(f"\n{len(models)} models, {obj:.0f} MB, plus {sc:.0f} MB of scene behind the switch -> {url}")
+        bg = sum(os.path.getsize(files[k]) for k in files if k.startswith("s")) / 1e6
+        n = sum(len(x["models"]) for x in scenes)
+        print(f"\n{len(scenes)} scene(s), {n} models, {obj:.0f} MB, plus {bg:.0f} MB of background -> {url}")
         if a.host == "0.0.0.0":
             print(f"from another machine: http://{socket.gethostname()}:{a.port}/")
         print("ctrl-c to stop")

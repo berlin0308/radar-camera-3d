@@ -253,6 +253,53 @@ a semi-transparent Gaussian anywhere along the ray drags it. This was run at one
 should clean it up and the number should be expected to move.
 
 
+## An open scene instead of an object: the Cut (2026-11-07)
+
+Everything above is one object inside a 1.2 m cylinder. `2026-11-03.17-07-11` is the opposite case and
+the same chain runs on it: 210 s, a 192 m walk around the Cut, a triangular lawn with buildings 20–40 m
+off and almost nothing within 15 m of the path. There is no pedestal here, so there is no object frame
+either — `src/ext/obj_radar/export_ply.py --no-pedestal --scene` keeps the pose and the per-scan ground
+and does no re-centring at all, which is the only honest thing to do when the correction has nothing to
+be measured on.
+
+| | Scotty, the object | the Cut, open ground |
+|---|---|---|
+| CFAR points | 67,106 | 26,194 |
+| pass the static filter | 68 % | 54 % |
+| median to the LiDAR layer, filtered | 0.01 m | 0.02 m |
+| within 0.5 m | 92 % | 94 % |
+| **coverage of the LiDAR cells** | 83 → **71 %** | 42 → **23 %** |
+| Doppler ridge agrees with the odometry | 89 % | 48 % |
+
+**The accuracy does not move and the coverage halves.** Where the radar puts a point it is still 2 cm
+from a LiDAR surface, and 94 % of its points are within half a metre — slightly better than on the
+object. What collapses is how much of the scene it has anything for, because on an open lawn there is
+very little within 15 m to return: a few trees, benches and the event fencing. The Doppler check falls
+with it (89 % → 48 %) for the same reason and not because the walk is faster — at 0.74 m/s against
+Scotty's 0.3 m/s the test should discriminate better, but fitting the static-world cosine needs strong
+static returns spread across azimuth, and there are not enough of them.
+
+GRT fills the gap in the sense that matters least: 414 scans give 331k points out to 35 m and up to
+8 m high, where the CFAR chain gives 4,690 flat ones. Whether that is structure or the same fog the
+object showed is not scored here — there is no LiDAR above 2.5 m to score it against, because
+`accumulate` keeps only that layer.
+
+![KISS-ICP on the Cut](../../figures/poses_cut_1103.png)
+
+*`17-07-11`, the whole 210 s: the trajectory is the lawn's own triangle, 192 m. The 15.56 m start-to-end
+gap is **not** a drift measurement — the walk does not return to its start. Its closest approach back is
+5.04 m at t = 199 s, after 183 m of path, and it then travels 16.4 m further before stopping, so 5.04 m
+is an upper bound on drift at that moment and not a measurement of it; without a marked spot the two
+cannot be separated. Yaw: −386° against the IMU's −461°, and the 75° is taken up in the first 20 s,
+after which the two curves run parallel — a different failure from the Jeep window, where the slip
+happens while standing and spinning. `python -m src.recon.poses data/raw/2026-11-03.17-07-11`.*
+
+![Radar and LiDAR over the Cut](../../figures/accum_cut_1103.png)
+
+*All CFAR points, after the static-world filter, and the LiDAR layer built with the same poses.
+`python -m src.recon.accumulate data/raw/2026-11-03.17-07-11 --start 0 --seconds 210`.*
+
+
 ## A viewer for all of it (2026-11-07)
 
 `src/ext/viewer/serve.py` serves `index.html`, a three.js page (r160, vendored, so it works offline)
@@ -277,6 +324,10 @@ slab, with no ground and no roofline.
 ```bash
 .venv/bin/python -m src.ext.viewer.serve --port 8422        # then http://localhost:8422/
 ```
+
+It carries more than one capture: a scene is a dropdown, and each one brings its own models, its own
+grid and its own height scale, so an open 192 m loop and a 1.2 m cut-out can live in the same page
+without a list of ten models. A scene is loaded the first time it is chosen and then kept.
 
 Two things are worth knowing before pointing `ns-viewer` at the splat run, because neither is obvious
 from the viewer. Its camera **orbits the world origin and zooms toward it**, and that origin is the

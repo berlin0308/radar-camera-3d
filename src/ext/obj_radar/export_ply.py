@@ -31,7 +31,31 @@ import argparse, os
 import numpy as np
 
 from ...calib.lidar import LidarTrace
+from ...recon.accumulate import height_above_ground
 from ...recon.closeup import Scan
+
+
+class FreeScan:
+    """One scan with its pose and ground, but no object to re-centre on.
+
+    `Scan` refines a centre on the object's pedestal, which is what makes an object frame possible.
+    A scene has no pedestal to fit, so --no-pedestal uses this instead: the same pose and the same
+    per-scan ground, with the centre left wherever --centre says and no correction applied."""
+
+    def __init__(self, lt, L, t_unix, c_world):
+        self.j = int(np.argmin(np.abs(L["t"] - t_unix)))
+        self.T = L["T"][self.j]
+        xyz = lt.xyz(lt.index_at(t_unix))
+        self.xyz = xyz[np.linalg.norm(xyz[:, :2], axis=1) > 0.5]
+        self.h = height_above_ground(self.xyz)
+        self.c = (self.T[:3, :3].T @ (np.r_[c_world, self.T[2, 3]] - self.T[:3, 3]))[:2]
+        self.fit, self.n_slice, self.radius = 1.0, 10 ** 9, None
+
+    def cut(self, r):
+        return np.hypot(*(self.xyz[:, :2] - self.c).T) < r
+
+    def world_xy(self, xy):
+        return xy @ self.T[:2, :2].T + self.T[:2, 3]
 from ...grt.occupancy import GridGeometry
 from ..obj_lidar.export_ply import voxel_mean, write_ply
 
@@ -56,6 +80,8 @@ def main():
                     help="the surroundings instead of the object: world frame, no per-scan re-centring")
     ap.add_argument("--slice", type=float, nargs=2, default=(0.45, 1.0))
     ap.add_argument("--pedestal-radius", type=float, default=None)
+    ap.add_argument("--no-pedestal", action="store_true",
+                    help="--scene with no object in it: skip the pedestal fit, keep the pose and ground")
     ap.add_argument("--threshold", type=float, default=0.5, help="GRT occupancy probability")
     ap.add_argument("--all-cells", action="store_true", help="keep every occupied cell, not just the first of each column")
     ap.add_argument("--all-detections", action="store_true", help="--source cfar: keep the points the static-world filter rejected too")
@@ -74,7 +100,11 @@ def main():
     c_guess = np.array(a.centre)
 
     radius = a.pedestal_radius
-    if radius is None:
+    if a.no_pedestal:
+        if not a.scene:
+            raise SystemExit("--no-pedestal only makes sense with --scene")
+        print("no pedestal: the world frame, shifted so --centre is the origin")
+    elif radius is None:
         radius = Scan(lt, L, t0 + a.orbit[0], c_guess, None, a.slice).radius
         print(f"pedestal radius {radius:.2f} m (free fit on the first scan)")
 
@@ -98,12 +128,16 @@ def main():
     scans = []                                   # (t, refined centre in world xy, ground z in world) per fitted scan
     for j in sel:
         t = L["t"][j]
-        s = Scan(lt, L, t, c_guess, radius, a.slice)
+        s = (FreeScan(lt, L, t, c_guess) if a.no_pedestal
+             else Scan(lt, L, t, c_guess, radius, a.slice))
         if s.fit < 0.3 or s.n_slice < 200:
             continue
         used += 1
         # local ground of this scan, in the sensor frame: z of the LiDAR points minus their height
-        near = s.cut(a.radius + 1.0)
+        # the ground is read near the sensor, not near the object: on a scene the sensor can be tens
+        # of metres from --centre, and a cut around the centre would then find nothing to fit
+        near = (np.linalg.norm(s.xyz[:, :2], axis=1) < 12.0 if a.no_pedestal
+                else s.cut(min(a.radius + 1.0, 12.0)))
         if near.sum() < 200:
             continue
         ground_z = float(np.median(s.xyz[near, 2] - s.h[near]))
@@ -159,7 +193,8 @@ def main():
 
     xy = np.concatenate(pts); h = np.concatenate(hts)
     if a.scene:
-        c_ref = np.array([r[1] for r in scans]).mean(0)       # one shift, so the pedestal is the origin
+        c_ref = (np.array(a.centre) if a.no_pedestal
+                 else np.array([r[1] for r in scans]).mean(0))    # one shift, so the object is the origin
         xy = xy - c_ref
         print(f"scene: world frame, shifted so the refined centre {c_ref.round(2)} is the origin")
     xyz = np.column_stack([xy, h])
