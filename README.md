@@ -6,6 +6,8 @@ evaluated against LiDAR.
 
 **[Experiment reports →](EXPERIMENTS.md)** every experiment with its numbers, figures and what is still pending.
 
+**[Three Sensors, One Statue →](https://claude.ai/artifact/Cc611gCdM8FRype53aoxeC)** Yining's write-up of the Scotty 11/03 orbit: radar, LiDAR and camera reconstructions in one object frame, with interactive viewers (a Claude artifact, needs the share; the numbers match [experiments/obj-orbit-360](experiments/obj-orbit-360/README.md)).
+
 Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowledged in the report).
 
 ## Layout
