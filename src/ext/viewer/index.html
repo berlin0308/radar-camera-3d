@@ -207,9 +207,21 @@ async function loadCloud(url, colour, photo, heightMax) {
 // --- scenes. Each is loaded the first time it is shown and then kept, so switching back is instant.
 const scenes = cfg.scenes.map(s => ({ ...s, loaded: null }));
 
+// Switching is async — the new scene's clouds may still be downloading — so it is guarded two ways:
+// every cloud of every scene already loaded is hidden up front (not just the one on screen), and a
+// token makes a switch that is overtaken by a later one give up instead of drawing over it.
+let switching = 0;
+
 async function showScene(i) {
+  const token = ++switching;
   const s = scenes[i];
-  if (S) models.forEach(m => { m.pts.visible = false; if (m.bg) m.bg.pts.visible = false; });
+  scenes.forEach(sc => (sc.loaded || []).forEach(m => {
+    m.pts.visible = false;
+    if (m.bg) m.bg.pts.visible = false;
+  }));
+  models = [];                                  // nothing to draw until the new set is ready
+  grounds.clear();
+  document.getElementById("hud").textContent = "";
   S = s;
   document.getElementById("title").textContent = s.title;
   document.getElementById("subtitle").textContent = s.subtitle;
@@ -219,15 +231,18 @@ async function showScene(i) {
   document.getElementById("bgGrp").hidden = !s.models.some(m => m.scene);
 
   if (!s.loaded) {
-    s.loaded = [];
+    const built = [];
     for (const m of s.models) {
       loadEl.hidden = false;
       loadEl.textContent = `loading ${m.name}…`;
       const c = await loadCloud(m.url, m.colour, m.has_photo_colour, s.height_max);
-      s.loaded.push({ ...m, ...c, bg: null, on: m.on !== false });
+      if (token !== switching) { scene.remove(c.pts); c.geo.dispose(); c.mat.dispose(); return; }
+      built.push({ ...m, ...c, bg: null, on: m.on !== false });
     }
+    s.loaded = built;
     loadEl.hidden = true;
   }
+  if (token !== switching) return;
   models = s.loaded;
   buildPanel();
   fitHeightCut(true);
