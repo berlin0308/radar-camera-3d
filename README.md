@@ -18,6 +18,7 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | `AGENDA_session2.md` | rig-day procedure (start-up, recording, shut-down, copying) |
 | `notes/shots.csv` | which trace is which shot |
 | `notes/sessions/` | full log per session, and the script behind each session's numbers |
+| `notes/handover-2026-11-08-berlin.md` | handover to Yining: where the GRT dumps are, their format, what the night trace holds |
 | `notes/fig/` | figures used in the Notebook deck |
 | `src/radar/` | own radar chain: `adc.py` → `range_doppler.py` → `angle.py` → `cfar.py` → `pointcloud.py`; `python -m src.radar <trace>` runs it on one frame |
 | `src/calib/` | extrinsics: `plane_solve` (current rig, 11/3 board shots, radar on the board's specular point); for the 10/21 rig `radar_lidar` (Kabsch), `board_image` + `radar_camera` (PnP), `joint` (one weighted solve); `RadarToLidar` / `RadarToCamera` to apply them; `overlay`, `compare`, `examples` to look at the result |
