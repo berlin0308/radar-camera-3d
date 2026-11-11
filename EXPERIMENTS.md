@@ -200,7 +200,7 @@ The four calibrations on the same second of the parking-lot frame make the compa
 
 ## 7. Dense depth
 
-*[m6-dense-depth](experiments/m6-dense-depth/README.md) · planned (due 11/30)*
+*[m6-dense-depth](experiments/m6-dense-depth/README.md) · preliminary (first run 11/11 on one static scene: 6 of 12 radar seeds within 0.2 m of the LiDAR; the seeds, not the fill, limit the result; colour guidance gave no gain on that scene)*
 
 The main deliverable; needs section 6 first. Radar points projected into the image are filled by joint bilateral upsampling (normalized convolution) and an edge-aware weighted least-squares solver from HW3; a scale-aligned monocular depth network is the baseline; the 128-beam LiDAR projected into the camera is ground truth; the metric is MAE by distance bin, day and night. The rig day 1 preview, with no LiDAR and a co-located guess, produced a dense cloud whose shape was mostly the camera's and the ground prior's, because a frame gives only 5–10 radar points; accumulation (section 9) is what will make the radar's share visible.
 
