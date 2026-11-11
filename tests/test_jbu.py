@@ -34,3 +34,15 @@ def test_nearest_column_uses_no_image():
     _, uv, depth = _scene()
     D = nearest_column(uv, depth, (40, 80))
     assert (D[:, :40] == 3.5).all() and (D[:, 41:] == 6.0).all()
+
+
+def test_least_squares_respects_connectivity_where_bilateral_matches_colour():
+    # dark | bright | dark: the right dark block has no seed and touches only the bright block.
+    # The bilateral fill gives it the left block's depth (same colour); the least-squares fill the bright block's (connected).
+    from src.fusion.wls import fill
+    guide = np.zeros((30, 90, 3)); guide[:, 30:60] = 1.0
+    uv = np.array([[15.0, 15.0], [45.0, 15.0]]); depth = np.array([3.5, 6.0])
+    Db, _ = upsample(guide, uv, depth, sigma_x=40, sigma_y=40, sigma_c=0.1)
+    Dw, _ = fill(guide, uv, depth, sigma=0.1, lam=1.0)
+    assert abs(Db[15, 80] - 3.5) < 0.1
+    assert abs(Dw[15, 80] - 6.0) < 0.1 and abs(Dw[15, 5] - 3.5) < 0.1 and abs(Dw[15, 45] - 6.0) < 0.1

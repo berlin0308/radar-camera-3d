@@ -13,7 +13,8 @@ import numpy as np
 
 from .seeds import static_cells, drop_sidelobes, first_returns, to_image
 from .jbu import upsample, nearest_column
-from ..eval.lidar_depth import lidar_depth_image, errors
+from .wls import fill as wls_fill
+from ..eval.lidar_depth import lidar_depth_image, errors, edge_band
 from ..recon.closeup import camera_frame
 
 DMAX = 20.0
@@ -43,9 +44,15 @@ def main():
     ap.add_argument("--scale", type=float, default=0.25)
     ap.add_argument("--sigma-x", type=float, default=100.0, help="px in the full frame"); ap.add_argument("--sigma-y", type=float, default=320.0)
     ap.add_argument("--sigma-c", type=float, default=0.08, help="Lab / 100")
+    ap.add_argument("--ls-sigma", type=float, default=0.05, help="edge weight of the least-squares fill, Lab / 100")
+    ap.add_argument("--ls-lambda", type=float, default=1.0, help="smoothness of the least-squares fill")
     ap.add_argument("--min-conf", type=float, default=0.05, help="share of the best confidence below which no depth is given")
     ap.add_argument("--verified", type=float, default=None, metavar="M",
                     help="upper bound, not a method: keep only seeds within M metres of the LiDAR at their own pixel")
+    ap.add_argument("--object", type=float, nargs=3, default=None, metavar=("X", "Y", "R"),
+                    help="also score one object: LiDAR points within R m (horizontally) of X, Y in the LiDAR frame")
+    ap.add_argument("--object-split", type=float, default=None, metavar="H",
+                    help="also score the object's parts below and above H m over the ground separately")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     trace = a.trace.rstrip("/"); cam_ts = np.fromfile(os.path.join(trace, "camera", "ts"), "<f8"); t_img = cam_ts[0] + a.time
@@ -58,65 +65,95 @@ def main():
 
     rgb, _ = camera_frame(trace, t_img, a.out + "._frame.png"); small, lab = guide_image(rgb, a.scale)
     H, W = lab.shape[:2]; sx, sy = a.sigma_x * a.scale, a.sigma_y * a.scale
-    ref, height = lidar_depth_image(trace, t_img, a.scale); above = height > 0.3
+    ref, height, xyimg = lidar_depth_image(trace, t_img, a.scale, return_xy=True); above = height > 0.3
+    obj = None
+    if a.object is not None:
+        obj = (np.hypot(xyimg[..., 0] - a.object[0], xyimg[..., 1] - a.object[1]) < a.object[2]) & above
     seed_err = seed_minus_lidar(uv * a.scale, d, ref); n_all = len(seeds)
     if a.verified is not None:                                           # the LiDAR picks the seeds: an upper bound for the fill
         v = np.abs(seed_err) < a.verified; seeds, uv, d, seed_err = seeds[v], uv[v], d[v], seed_err[v]
         print(f"upper bound: {len(seeds)} of {n_all} seeds are within {a.verified} m of the LiDAR")
     uvs = uv * a.scale
     w = seeds["share"].astype(float)
-    fills = {"nearest column": nearest_column(uvs, d, (H, W))}
-    fills["Gaussian"], conf_g = upsample(lab, uvs, d, sx, sy, None, w)
-    fills["joint bilateral"], conf = upsample(lab, uvs, d, sx, sy, a.sigma_c, w)
-    sure = conf > a.min_conf * conf.max()
+    fills, conf = {"nearest column": nearest_column(uvs, d, (H, W))}, {}
+    fills["Gaussian"], _ = upsample(lab, uvs, d, sx, sy, None, w)
+    fills["joint bilateral"], conf["joint bilateral"] = upsample(lab, uvs, d, sx, sy, a.sigma_c, w)
+    # Point constraints alone are degenerate for a 2D smoothness term (the solution is flat with a dip at
+    # each seed), so the least-squares fill is anchored on the whole seed row: every column takes its
+    # nearest seed's depth at the row the seeds lie on, then depth spreads up and down along the image.
+    order = np.argsort(uvs[:, 0]); cols_u = np.arange(W, dtype=float)
+    row_v = np.interp(cols_u, uvs[order, 0], uvs[order, 1]); jn = np.abs(cols_u[:, None] - uvs[None, :, 0]).argmin(axis=1)
+    fills["edge-aware least squares"], conf["edge-aware least squares"] = wls_fill(
+        lab, np.stack([cols_u, row_v], axis=1), d[jn], a.ls_sigma, a.ls_lambda, radius=0, weight=w[jn])
+    fills["constant (median seed)"] = np.full((H, W), float(np.median(d)))
+    sure = {k: c > a.min_conf * c.max() for k, c in conf.items()}
 
-    res = {name: dict(all=errors(D, ref), above_ground=errors(D, ref, above)) for name, D in fills.items()}
-    res["joint bilateral, confident"] = dict(all=errors(fills["joint bilateral"], ref, sure), above_ground=errors(fills["joint bilateral"], ref, sure & above),
-                                             coverage=float((sure & np.isfinite(ref) & above).sum() / max((np.isfinite(ref) & above).sum(), 1)))
+    band = edge_band(ref)
+    masks = {"above_ground": above, "edge_band": above & band, "off_band": above & ~band}
+    if obj is not None:
+        masks["object"] = obj
+        if a.object_split is not None:
+            masks["object, lower part"] = obj & (height < a.object_split); masks["object, upper part"] = obj & (height >= a.object_split)
+    res = {}
+    for name, D in fills.items():
+        res[name] = {"all": errors(D, ref), **{k: errors(D, ref, m) for k, m in masks.items()}}
+    for name, sm in sure.items():
+        res[name + ", confident"] = {"all": errors(fills[name], ref, sm), **{k: errors(fills[name], ref, m & sm) for k, m in masks.items()},
+                                     "coverage": float((sm & np.isfinite(ref) & above).sum() / max((np.isfinite(ref) & above).sum(), 1))}
     res["seeds"] = dict(n=len(seeds), n_before_verification=n_all, az_deg=np.degrees(seeds["az"]).round(1).tolist(), range_m=d.round(2).tolist(), minus_lidar_m=np.round(seed_err, 2).tolist())
     res["params"] = dict(trace=os.path.basename(trace), time=a.time, start=a.start, seconds=a.seconds, frames=n, scale=a.scale,
-                         sigma_x=a.sigma_x, sigma_y=a.sigma_y, sigma_c=a.sigma_c, min_conf=a.min_conf, verified=a.verified)
+                         sigma_x=a.sigma_x, sigma_y=a.sigma_y, sigma_c=a.sigma_c, ls_sigma=a.ls_sigma, ls_lambda=a.ls_lambda,
+                         min_conf=a.min_conf, verified=a.verified, object=a.object, object_split=a.object_split)
+    res["pixels"] = {k: int((m & np.isfinite(ref)).sum()) for k, m in masks.items()}
     json.dump(res, open(os.path.splitext(a.out)[0] + ".json", "w"), indent=1)
-    for name in fills:
-        e = res[name]["above_ground"]; print(f"{name:16s} above ground: " + "  ".join(f"{k} {v['mae']:.2f} m (n={v['n']})" for k, v in e.items()))
-    e = res["joint bilateral, confident"]; print(f"{'JB, confident':16s} above ground: " + "  ".join(f"{k} {v['mae']:.2f} m (n={v['n']})" for k, v in e["above_ground"].items()) + f"  coverage {e['coverage']:.0%}")
+    rows = [k for k in res if isinstance(res[k], dict) and "all" in res[k]]
+    print(f"{'0-20 m, mean abs. error (m)':34s}" + "".join(f"{k[:14]:>15s}" for k in masks))
+    for name in rows:
+        print(f"{name:34s}" + "".join(f"{res[name][k]['0-20 m']['mae']:15.2f}" for k in masks)
+              + (f"   coverage {res[name]['coverage']:.0%}" if "coverage" in res[name] else ""))
 
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(2, 5, figsize=(22, 6.4), constrained_layout=True)
-    kw = dict(cmap="turbo", vmin=0, vmax=DMAX)
-    ax[0, 0].imshow(np.clip(small * 2.2, 0, 1)); m = ok_all
+    nf = len(fills); fig, ax = plt.subplots(2, nf + 2, figsize=(4.4 * (nf + 2), 6.4), constrained_layout=True)
+    kw = dict(cmap="turbo", vmin=0, vmax=DMAX); letters = iter("abcdefghijklmnop")
+    gain = float(np.clip(0.85 / max(np.percentile(small, 95), 1e-3), 1.0, 2.5)); show = np.clip(small * gain, 0, 1)
+    ax[0, 0].imshow(show); m = ok_all
     ax[0, 0].scatter(uv_all[m, 0] * a.scale, uv_all[m, 1] * a.scale, s=14, c="none", edgecolors="0.75", linewidths=.6)
     ax[0, 0].scatter(uvs[:, 0], uvs[:, 1], s=46, c=d, edgecolors="white", linewidths=.8, **kw)
-    ax[0, 0].set_title(f"a · camera (brightened) and {len(seeds)} radar seeds\n(grey: cells dropped as sidelobes or behind a nearer one)", fontsize=10)
+    ax[0, 0].set_title(f"{next(letters)} · camera{' (brightened)' if gain > 1.05 else ''} and {len(seeds)} radar seeds\n(grey: cells dropped as sidelobes or behind a nearer one)", fontsize=10)
     for j, name in enumerate(fills):
         D = fills[name].copy()
-        if name == "joint bilateral": D[~sure] = np.nan
-        im = ax[0, j + 1].imshow(D, **kw); ax[0, j + 1].set_title(f"{'bcd'[j]} · {name}", fontsize=10)
-    refd = ref.copy(); ax[0, 4].imshow(np.clip(small * 2.2, 0, 1) * 0.35)
-    yy, xx = np.nonzero(np.isfinite(ref)); ax[0, 4].scatter(xx, yy, s=1.5, c=ref[yy, xx], marker="s", linewidths=0, **kw)
-    ax[0, 4].set_title("e · LiDAR reference (not used by b, c, d)", fontsize=10)
+        if name in sure: D[~sure[name]] = np.nan
+        im = ax[0, j + 1].imshow(D, **kw); ax[0, j + 1].set_title(f"{next(letters)} · {name}" + (" (confident pixels)" if name in sure else ""), fontsize=10)
+    ax[0, nf + 1].imshow(show * 0.35)
+    yy, xx = np.nonzero(np.isfinite(ref)); ax[0, nf + 1].scatter(xx, yy, s=1.5, c=ref[yy, xx], marker="s", linewidths=0, **kw)
+    ax[0, nf + 1].set_title(f"{next(letters)} · LiDAR reference (used by no fill)", fontsize=10)
     fig.colorbar(im, ax=ax[0, :], shrink=.85, label="range from the camera (m)", pad=0.01)
-    ax[1, 0].imshow(conf / conf.max(), cmap="gray", vmin=0, vmax=1); ax[1, 0].set_title("f · confidence of d (its denominator)", fontsize=10)
+    if obj is not None:
+        oy, ox = np.nonzero(obj); ax[1, 0].imshow(show * 0.5); ax[1, 0].scatter(ox, oy, s=1.5, c="#ffcc00", marker="s", linewidths=0)
+        ax[1, 0].set_title(f"{next(letters)} · object pixels scored separately", fontsize=10)
+    else:
+        ax[1, 0].imshow(conf["joint bilateral"] / conf["joint bilateral"].max(), cmap="gray", vmin=0, vmax=1); ax[1, 0].set_title(f"{next(letters)} · confidence of the bilateral fill", fontsize=10)
     ekw = dict(cmap="magma", vmin=0, vmax=5)
     for j, name in enumerate(fills):
         ax[1, j + 1].imshow(np.zeros((H, W)), cmap="gray", vmin=0, vmax=1)
-        mm = np.isfinite(ref) & above & (sure if name == "joint bilateral" else True); yy, xx = np.nonzero(mm)
+        mm = np.isfinite(ref) & above & sure.get(name, True); yy, xx = np.nonzero(mm)
         ie = ax[1, j + 1].scatter(xx, yy, s=1.5, c=np.abs(fills[name] - ref)[yy, xx], marker="s", linewidths=0, **ekw)
         ax[1, j + 1].set_xlim(0, W); ax[1, j + 1].set_ylim(H, 0)
-        ax[1, j + 1].set_title(f"{'ghi'[j]} · |{name} − LiDAR|, above ground", fontsize=10)
-    fig.colorbar(ie, ax=ax[1, 1:4], shrink=.85, label="absolute error (m)", pad=0.01)
-    names = list(fills) + ["joint bilateral, confident"]; bins = list(res[names[0]]["above_ground"])
-    x = np.arange(len(bins)); bw = 0.2
-    for i, name in enumerate(names):
-        ax[1, 4].bar(x + (i - 1.5) * bw, [res[name]["above_ground"][b]["mae"] for b in bins], bw, label=name)
-    ax[1, 4].set_xticks(x); ax[1, 4].set_xticklabels(bins); ax[1, 4].set_ylabel("mean absolute error (m)"); ax[1, 4].legend(fontsize=8)
-    ax[1, 4].set_title("j · error above ground, by LiDAR distance", fontsize=10)
-    for axx in ax.ravel()[:9]:
+        ax[1, j + 1].set_title(f"{next(letters)} · |{name} − LiDAR|", fontsize=10)
+    fig.colorbar(ie, ax=ax[1, 1:nf + 1], shrink=.85, label="absolute error, above ground (m)", pad=0.01)
+    keys = [k for k in masks if k != "above_ground"] if obj is not None else ["edge_band", "off_band"]
+    label = {"edge_band": "near depth edges", "off_band": "away from edges", "object": "object", "object, lower part": "object, lower", "object, upper part": "object, upper"}
+    x = np.arange(len(keys)); bw = 0.8 / nf
+    for i, name in enumerate(fills):
+        ax[1, nf + 1].bar(x + (i - (nf - 1) / 2) * bw, [res[name][k]["0-20 m"]["mae"] for k in keys], bw, label=name)
+    ax[1, nf + 1].set_xticks(x); ax[1, nf + 1].set_xticklabels([label.get(k, k) for k in keys], rotation=20, ha="right")
+    ax[1, nf + 1].set_ylabel("mean absolute error, 0-20 m (m)"); ax[1, nf + 1].legend(fontsize=7)
+    ax[1, nf + 1].set_title(f"{next(letters)} · error by region, all pixels of each fill", fontsize=10)
+    for axx in list(ax[0]) + list(ax[1, :nf + 1]):
         axx.set_xticks([]); axx.set_yticks([])
     note = f" · UPPER BOUND: seeds picked by the LiDAR ({len(seeds)} of {n_all})" if a.verified is not None else ""
     fig.suptitle(f"{os.path.basename(trace)} · dense depth from {len(seeds)} radar seeds ({n} frames, rig static) and one camera frame{note}", fontsize=12)
     fig.savefig(a.out, dpi=110); print("saved", a.out)
-
 
 if __name__ == "__main__":
     main()

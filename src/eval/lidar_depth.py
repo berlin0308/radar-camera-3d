@@ -15,8 +15,10 @@ from ..recon.accumulate import height_above_ground
 BINS = [(0, 5), (5, 10), (10, 20)]
 
 
-def lidar_depth_image(trace, t_unix, scale=0.25, scans=3, max_angle=np.radians(80)):
+def lidar_depth_image(trace, t_unix, scale=0.25, scans=3, max_angle=np.radians(80), return_xy=False):
     """Reference depth (H, W) and height above ground (H, W) at `scale`; NaN where no LiDAR point falls.
+
+    With return_xy, also the LiDAR-frame x, y of the point behind each pixel (H, W, 2), to cut out an object.
 
     A few consecutive scans are merged (the rig is static) and the nearest point wins per pixel.
     """
@@ -29,13 +31,27 @@ def lidar_depth_image(trace, t_unix, scale=0.25, scans=3, max_angle=np.radians(8
     xyz = np.concatenate(xyz); hgt = np.concatenate(hgt)
     xc = xyz @ R.T + t; d = np.linalg.norm(xc, axis=1)
     ok = (xc[:, 2] > 0.1) & (np.arccos(np.clip(xc[:, 2] / d, -1, 1)) < max_angle)
-    uv = np.floor(project_fisheye(xc[ok], cam) * scale).astype(int); d, hgt = d[ok], hgt[ok]
+    uv = np.floor(project_fisheye(xc[ok], cam) * scale).astype(int); d, hgt, xy = d[ok], hgt[ok], xyz[ok, :2]
     H, W = int(cam["h"] * scale), int(cam["w"] * scale)
-    inb = (uv[:, 0] >= 0) & (uv[:, 0] < W) & (uv[:, 1] >= 0) & (uv[:, 1] < H); uv, d, hgt = uv[inb], d[inb], hgt[inb]
+    inb = (uv[:, 0] >= 0) & (uv[:, 0] < W) & (uv[:, 1] >= 0) & (uv[:, 1] < H); uv, d, hgt, xy = uv[inb], d[inb], hgt[inb], xy[inb]
     order = np.argsort(-d)                                               # far first, so the nearest is written last
-    depth = np.full((H, W), np.nan); height = np.full((H, W), np.nan)
+    depth = np.full((H, W), np.nan); height = np.full((H, W), np.nan); xyimg = np.full((H, W, 2), np.nan)
     depth[uv[order, 1], uv[order, 0]] = d[order]; height[uv[order, 1], uv[order, 0]] = hgt[order]
-    return depth, height
+    xyimg[uv[order, 1], uv[order, 0]] = xy[order]
+    return (depth, height, xyimg) if return_xy else (depth, height)
+
+
+def edge_band(ref, win=7, jump=1.0, grow=3):
+    """Pixels near a depth edge of the reference: within `grow` px of a window whose LiDAR depths span more than `jump` m.
+
+    This is where an edge-aware fill should differ from a plain one; away from edges both are the
+    same smooth interpolation.
+    """
+    from scipy.ndimage import maximum_filter, minimum_filter, binary_dilation
+    hi = maximum_filter(np.where(np.isfinite(ref), ref, -np.inf), size=win)
+    lo = minimum_filter(np.where(np.isfinite(ref), ref, np.inf), size=win)
+    band = np.isfinite(hi) & np.isfinite(lo) & (hi - lo > jump)
+    return binary_dilation(band, iterations=grow)
 
 
 def errors(pred, ref, mask=None, bins=BINS):

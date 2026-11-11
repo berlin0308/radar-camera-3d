@@ -1,6 +1,6 @@
 # M6: camera-guided dense depth, evaluated against LiDAR
 
-**Status:** Preliminary (first run 2026-11-11, one static scene, numbers will move); night pair not recorded yet
+**Status:** Preliminary (2026-11-11): the static outdoor scene B and the Scotty static scene, day; night pair not recorded yet
 
 ## Question
 How much of the camera's structure can be lent to sparse radar depth, and where does it break?
@@ -76,6 +76,30 @@ What this says, on this one scene:
 
 Parameters were set by hand on this scene (sigma 100 px across, 320 px up, 0.08 in Lab/100) and not tuned against the LiDAR. The figures carry a camera frame and are kept local (`data/sessions/dense/`).
 
+## Scotty, rig on a stand (2026-11-11)
+Scene: `2026-11-05.16-34-29` (second take `16-36-41`), the statue 3.2 m ahead with its curved wall about 7 m behind. Same seeds as above (21 persistent cells, 9 seeds in the image; 7 of 9 within 0.35 m of the LiDAR, the statue's seed −0.26 m). Two more fills next to the first three: a **constant** depth (the median seed), and an **edge-aware least squares** fill (the seed row filled by nearest seed, then a smoothness term weak across colour edges: σ 0.05 in Lab/100, λ 1; point seeds alone are degenerate for a 2D smoothness term). Two more regions: pixels **near a depth edge** of the LiDAR (a 7 × 7 window spanning more than 1 m, grown by 3 px), and the **statue**, cut out of the LiDAR (points within 0.9 m of its axis at (−3.21, 0.24) m in the LiDAR frame), split at 1.05 m above the ground into the stone pedestal and the bronze figure.
+
+Mean absolute error, 0–20 m, above the ground (m):
+
+| Fill | All | Near depth edges | Statue | Stone pedestal | Bronze figure |
+|---|---|---|---|---|---|
+| Constant (median seed) | 1.29 | 2.38 | 3.44 | 3.47 | 3.36 |
+| Nearest seed per column | 1.62 | 2.58 | **1.51** | **1.80** | **0.59** |
+| Gaussian | 1.41 | 2.52 | 2.05 | 2.17 | 1.69 |
+| Joint bilateral | 1.64 | 2.64 | 3.72 | 4.10 | 2.52 |
+| Edge-aware least squares | **1.13** | **2.16** | 2.28 | 2.62 | 1.24 |
+
+Second take, same order: all 1.31, 1.74, 1.66, 1.78, 1.35; statue 3.40, 1.50, 1.91, 2.78, 2.05. With only the seeds the LiDAR agrees with (an upper bound): statue 3.40, 1.51, 1.96, 3.24, 2.35.
+
+- **The radar has the statue's depth; colour guidance moves it.** Without the image the bronze figure is at 0.59 m. The joint bilateral fill is the worst on the statue: the figure (median lightness 0.21 in the guide) is as dark as the windows of the wall 7 m behind (0.17 to 0.23 at the wall's seeds beside it) and lighter than the patch at its own seed (0.10); the stone pedestal (0.44) matches the stone wall (0.43 to 0.60). The colour test picks the wall's seeds for both parts.
+- **The overall average hides this**: the wall covers most pixels, and a constant depth already scores 1.29 m.
+- **Connectivity instead of colour** (least squares) is best overall and near depth edges, but not on the statue.
+- Parameters set by eye on this scene, not tuned against the LiDAR. The least-squares fill has no useful confidence yet (its cut keeps every pixel).
+
+![Scotty static: seeds, five fills, LiDAR, errors by region](../../figures/dense_scotty_1105.png)
+
+*`2026-11-05.16-34-29` at 30 s: camera with the 9 seeds (a); the five fills (b–f; d and e show their confident pixels); the LiDAR reference (g); the statue mask (h); absolute error per fill above the ground (i–m); error by region (n). Numbers: `dense_scotty_1105.json`, `dense_scotty_1105_take2.json`, `dense_scotty_1105_upper_bound.json` in this folder.*
+
 ## Conclusion
 Pending: one scene only. Next are a scene with a depth edge between wide objects (Scotty in front of its wall, the Jeep in front of the car row) and the night pair.
 
@@ -93,8 +117,9 @@ Pending: one scene only. Next are a scene with a depth edge between wide objects
 ```bash
 python -m src.fusion.dense_depth data/raw/2026-11-05.16-10-35 --time 12 --start 5 --seconds 50 --out out/dense_static_b.png
 python -m src.fusion.dense_depth data/raw/2026-11-05.16-10-35 --time 12 --start 5 --seconds 50 --verified 0.5 --out out/dense_static_b_verified.png   # upper bound
+python -m src.fusion.dense_depth data/raw/2026-11-05.16-34-29 --start 5 --seconds 50 --time 30 --object -3.21 0.24 0.9 --object-split 1.05 --out figures/dense_scotty_1105.png
 python -m pytest tests/test_jbu.py -q
 ```
-`src/fusion/seeds.py` (persistent cells, sidelobe and first-return rules, projection), `src/fusion/jbu.py` (the three fills), `src/eval/lidar_depth.py` (LiDAR depth in the image, error by distance), `src/fusion/dense_depth.py` (the figure and a JSON with every number).
+`src/fusion/seeds.py` (persistent cells, sidelobe and first-return rules, projection), `src/fusion/jbu.py` (nearest, Gaussian and joint bilateral fills), `src/fusion/wls.py` (edge-aware least squares), `src/eval/lidar_depth.py` (LiDAR depth in the image, error by distance), `src/fusion/dense_depth.py` (the figure and a JSON with every number).
 
 [Back to all experiments](../../EXPERIMENTS.md)
