@@ -55,13 +55,18 @@ def edge_band(ref, win=7, jump=1.0, grow=3):
 
 
 def errors(pred, ref, mask=None, bins=BINS):
-    """Mean and median absolute error per distance bin of the reference, over pixels where both exist."""
+    """Mean and median absolute error per distance bin of the reference, over pixels where both exist.
+
+    d125 is the share of pixels within a factor 1.25 of the reference (the usual depth-completion delta).
+    """
     ok = np.isfinite(ref) & np.isfinite(pred)
     if mask is not None:
         ok &= mask
     out = {}
     for lo, hi in bins + [(bins[0][0], bins[-1][1])]:
         m = ok & (ref >= lo) & (ref < hi); e = np.abs(pred[m] - ref[m])
+        ratio = np.maximum(pred[m] / np.maximum(ref[m], 1e-6), ref[m] / np.maximum(pred[m], 1e-6))
         out[f"{lo}-{hi} m"] = dict(n=int(m.sum()), mae=float(e.mean()) if m.any() else float("nan"),
-                                   median=float(np.median(e)) if m.any() else float("nan"))
+                                   median=float(np.median(e)) if m.any() else float("nan"),
+                                   d125=float((ratio < 1.25).mean()) if m.any() else float("nan"))
     return out

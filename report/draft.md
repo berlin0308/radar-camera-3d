@@ -27,7 +27,7 @@ Conventions for this draft:
 
 ![Figure 1](../figures/dense_scotty_1105.png)
 
-*Figure 1. Teaser, for now the full dense-depth figure of section 7. To make: four panels only, camera with the radar seeds, nearest column, joint bilateral, LiDAR.*
+*Figure 1. Teaser, for now the full dense-depth figure of section 7 (Figure 15). To make: a two-row cut of it, the input row and the joint bilateral row.*
 
 ---
 
@@ -253,9 +253,9 @@ Take 2 gives the same ranking: statue 1.50 (nearest), 1.91 (Gaussian), 2.78 (joi
 
 ![Figure 15](../figures/dense_scotty_1105.png)
 
-*Figure 15. Scotty, rig on a stand: (a) camera and the 9 radar seeds; (b–f) the five fills, the bilateral and least-squares ones on their confident pixels; (g) the LiDAR reference; (h) the statue pixels; (i–m) absolute error of each fill above the ground; (n) error by region. To make for the PDF: fewer panels, larger text.*
+*Figure 15. Scotty, rig on a stand. Top row: the camera with the 9 radar seeds, the statue's pixels from the LiDAR, and the statue's outline, orange where it is distinct from the background in colour and blue where it is similar. Each further row is one fill: its depth (grey, near is white), its error against the LiDAR above the ground, and a close-up of the statue with the same outline. Under each panel: mean absolute error (MAE), the share of pixels within a factor 1.25 of the LiDAR, the error near depth edges and elsewhere, and the share of each outline kept (section 7.5). The constant fill is in the table only.*
 
-Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json` and `dense_scotty_1105_take2.json`.
+Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json`, `dense_scotty_1105_take2.json` and `dense_scotty_1105_upper_bound.json`.
 
 ### 7.4 What the numbers say
 
@@ -264,13 +264,32 @@ Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json` and `dense_scotty_1
 - **The overall average hides this.** The wall covers most pixels, so a constant depth already scores 1.29 m overall and the statue barely moves the overall number.
 - **Connectivity instead of colour helps overall but not on the statue.** The least-squares fill is the best overall (1.13 m) and near depth edges (2.16 m), but on the statue it is between nearest column and joint bilateral.
 - **Upper bound.** Keeping only the seeds within 0.3 m of the LiDAR (6 of 9; this uses the LiDAR, so it is not a method) barely changes the statue's numbers (joint bilateral 3.72 to 3.24 m, still the worst): the wrong seeds are not what moves the statue's depth.
-- **Reading.** The statue is an object whose appearance resembles its background. Image guidance assumes that similar colour means similar depth; on this scene that assumption fails for both parts of the statue.
+- **Reading.** Image guidance assumes that similar colour means similar depth. The joint bilateral fill compares each pixel with the seeds' pixels anywhere in its reach, so what matters is whether the object looks like *another seed's* surface, not only like what is right behind it. The bronze figure stands out against the window frames behind it (section 7.5), yet still takes the wall's depth, because it is as dark as the windows at the wall's seeds.
+
+### 7.5 Distinct and similar outlines
+
+Does a fill keep an object's outline better when the outline is visible in colour? The statue has both kinds. Its outline is the closed set of the statue's LiDAR pixels. Each outline pixel gets a colour contrast, the Lab distance between the mean colour within 4 px inside and outside it, and a depth step, the mean LiDAR range outside minus inside. Only outline pixels with a step over 1 m count, which leaves out the base, where the pedestal meets the ground at the same range. The contrast is clearly bimodal (median 6.8, upper quartile 23.8 Lab units). Outline pixels with contrast ≥ 15 are **distinct** (89 px, the bronze figure against the pale window frames). Those below 7 are **similar** (134 px, the stone pedestal against the stone wall).
+
+The score is the **share of the outline kept**: of the pixels within 4 px of an outline class, the share the fill puts on the right side, nearer the statue's range (3.7 m) inside and nearer the wall's (6.6 m) outside. A constant depth gets only the outside right, about 46 %; the LiDAR itself, spread to every pixel from its nearest point, gets 88 % and 91 %.
+
+| Fill | Distinct, take 1 | Distinct, take 2 | Similar, take 1 | Similar, take 2 |
+|---|---|---|---|---|
+| Constant | 47 % | 47 % | 46 % | 46 % |
+| Nearest column | 59 % | 58 % | 46 % | 47 % |
+| Gaussian | 66 % | 68 % | 46 % | 46 % |
+| Joint bilateral | 67 % | 57 % | 46 % | 44 % |
+| Edge-aware least squares | **77 %** | **78 %** | 46 % | 46 % |
+
+- **Where the outline does not show in colour, no fill keeps it.** On the similar outline every fill scores like a constant: all of them give the pedestal's edge the wall's depth.
+- **Where it does, the fill that follows colour edges keeps the most.** Least squares keeps 77–78 % in both takes. Joint bilateral is no better than the Gaussian fill, which ignores colour (67 vs 66 %, 57 vs 68 %): a distinct outline helps a fill that asks whether a pixel is *connected* to a seed, not one that asks whether it *looks like* one.
+- With seeds picked by the LiDAR (upper bound) the numbers barely move (least squares 76 % / 46 %), so the seeds are not the limit here.
+- Limits: one object, two takes of the same scene, 89 and 134 outline pixels. The thresholds come from the gap in the contrast histogram, not from tuning against the LiDAR.
 
 ![Figure 16](../experiments/_assets/placeholder.svg)
 
 *Figure 16. To make: the same scene at night, same mark (N2).*
 
-[TODO: 7.5 Day and night. The night pair of this scene (N2), same mark. Expected: the radar seeds do not change; the guide image loses its edges, so the joint bilateral fill tends to the Gaussian one. Not recorded yet.]
+[TODO: 7.6 Day and night. The night pair of this scene (N2), same mark. Expected: the radar seeds do not change; the guide image loses its edges, so the joint bilateral fill tends to the Gaussian one. Not recorded yet.]
 
 ---
 

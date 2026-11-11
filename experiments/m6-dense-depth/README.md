@@ -96,9 +96,21 @@ Second take, same order: all 1.31, 1.74, 1.66, 1.78, 1.35; statue 3.40, 1.50, 1.
 - **Connectivity instead of colour** (least squares) is best overall and near depth edges, but not on the statue.
 - Parameters set by eye on this scene, not tuned against the LiDAR. The least-squares fill has no useful confidence yet (its cut keeps every pixel).
 
-![Scotty static: seeds, five fills, LiDAR, errors by region](../../figures/dense_scotty_1105.png)
+**Distinct and similar outlines** (TA question: objects that stand out vs objects that look like their background). The statue's outline (closed LiDAR mask, only where the range steps by more than 1 m) is split by colour contrast across it: ≥ 15 Lab units is distinct (89 px, bronze against the window frames), < 7 is similar (134 px, stone pedestal against stone wall). Score: share of pixels within 4 px of the outline that the fill puts on the right side (`src/eval/silhouette.py`).
 
-*`2026-11-05.16-34-29` at 30 s: camera with the 9 seeds (a); the five fills (b–f; d and e show their confident pixels); the LiDAR reference (g); the statue mask (h); absolute error per fill above the ground (i–m); error by region (n). Numbers: `dense_scotty_1105.json`, `dense_scotty_1105_take2.json`, `dense_scotty_1105_upper_bound.json` in this folder.*
+| Fill | Distinct (take 1 / 2) | Similar (take 1 / 2) |
+|---|---|---|
+| Constant | 47 / 47 % | 46 / 46 % |
+| Nearest column | 59 / 58 % | 46 / 47 % |
+| Gaussian | 66 / 68 % | 46 / 46 % |
+| Joint bilateral | 67 / 57 % | 46 / 44 % |
+| Edge-aware least squares | **77 / 78 %** | 46 / 46 % |
+
+No fill keeps a similar outline (all score like a constant). On a distinct one, least squares keeps the most; joint bilateral is no better than Gaussian. LiDAR spread to every pixel: 88 / 91 %.
+
+![Scotty static: one row per fill; depth, error, statue close-up](../../figures/dense_scotty_1105.png)
+
+*`2026-11-05.16-34-29` at 30 s. Top row: camera with the 9 seeds, the statue's LiDAR pixels, its outline (orange distinct, blue similar). One row per fill: depth (grey, near is white, 2–10 m), error against the LiDAR, statue close-up; numbers under each panel. The constant fill is in the JSON only. Numbers: `dense_scotty_1105.json`, `dense_scotty_1105_take2.json`, `dense_scotty_1105_upper_bound.json` in this folder.*
 
 ## Conclusion
 Pending: one scene only. Next are a scene with a depth edge between wide objects (Scotty in front of its wall, the Jeep in front of the car row) and the night pair.
@@ -117,9 +129,9 @@ Pending: one scene only. Next are a scene with a depth edge between wide objects
 ```bash
 python -m src.fusion.dense_depth data/raw/2026-11-05.16-10-35 --time 12 --start 5 --seconds 50 --out out/dense_static_b.png
 python -m src.fusion.dense_depth data/raw/2026-11-05.16-10-35 --time 12 --start 5 --seconds 50 --verified 0.5 --out out/dense_static_b_verified.png   # upper bound
-python -m src.fusion.dense_depth data/raw/2026-11-05.16-34-29 --start 5 --seconds 50 --time 30 --object -3.21 0.24 0.9 --object-split 1.05 --out figures/dense_scotty_1105.png
-python -m pytest tests/test_jbu.py -q
+python -m src.fusion.dense_depth data/raw/2026-11-05.16-34-29 --start 5 --seconds 50 --time 30 --object -3.21 0.24 0.9 --object-split 1.05 --vmin 2 --vmax 10 --out figures/dense_scotty_1105.png
+python -m pytest tests/test_jbu.py tests/test_silhouette.py -q
 ```
-`src/fusion/seeds.py` (persistent cells, sidelobe and first-return rules, projection), `src/fusion/jbu.py` (nearest, Gaussian and joint bilateral fills), `src/fusion/wls.py` (edge-aware least squares), `src/eval/lidar_depth.py` (LiDAR depth in the image, error by distance), `src/fusion/dense_depth.py` (the figure and a JSON with every number).
+`src/fusion/seeds.py` (persistent cells, sidelobe and first-return rules, projection), `src/fusion/jbu.py` (nearest, Gaussian and joint bilateral fills), `src/fusion/wls.py` (edge-aware least squares), `src/eval/lidar_depth.py` (LiDAR depth in the image, error by distance), `src/eval/silhouette.py` (object outline, distinct/similar split, outline kept), `src/fusion/dense_depth.py` (the figure and a JSON with every number).
 
 [Back to all experiments](../../EXPERIMENTS.md)
