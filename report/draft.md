@@ -42,7 +42,7 @@ To answer it, I built a radar–camera 3D camera from first principles on a hand
 
 ![Figure 1](../figures/dense_scotty_1105.png)
 
-*Figure 1. **Nine radar points and one photograph are not enough to give a statue its shape.** Left column: the camera frame with the radar seeds (red), and the LiDAR depth used as ground truth. Other columns: four ways to fill the radar depth, from no image (nearest column) to image-guided (joint bilateral, edge-aware least squares). Rows: the depth in 3D, coloured by the camera; the depth map (near is white); a close-up of the statue, with its outline orange where it differs from the background in colour and blue where it does not. Mean absolute error against the LiDAR is under each panel. [TODO: teaser version, top row only.]*
+*Figure 1. **Nine radar points and one photograph do not give a statue its shape.** Input and LiDAR reference, then four fills. Rows: 3D view, depth (near is white), statue close-up; outline orange where it stands out in colour, blue where it does not. MAE against the LiDAR under each panel. [TODO: teaser version, top row only.]*
 
 ---
 
