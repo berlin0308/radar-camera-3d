@@ -251,21 +251,28 @@ Mean absolute error (m), 0–20 m, take 1 with radar seeds:
 
 Take 2 gives the same ranking: statue 1.50 (nearest), 1.91 (Gaussian), 2.78 (joint bilateral), 2.05 (least squares); around it 1.42, 1.19, 1.27, 1.06, constant 0.58; all pixels 1.74, 1.66, 1.78, 1.35, constant 1.31.
 
-![Figure 15](../figures/dense_scotty_1105.png)
-
-*Figure 15. Dense depth at Scotty. Columns: input and LiDAR, then the four fills. Rows: 3D view in camera colours, depth (near is white), statue close-up (outline orange where distinct from the background, blue where similar). MAE against the LiDAR.*
-
 Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json`, `dense_scotty_1105_take2.json` and `dense_scotty_1105_upper_bound.json`.
 
-### 7.4 What the numbers say
+### 7.4 What the figure shows
 
-- **The radar has the statue's depth, but no fill has its shape.** Its seed on the statue is 0.26 m off. The nearest-column fill has the lowest statue error (1.51 m) only because it paints that seed's depth into a 34 px wide band of columns that lands on the statue's middle: the 59 % of statue pixels inside the band are at 0.14 m error, the 41 % outside it (the pedestal's wide base, the figure's sides) at 3.5 m, and the wall above the statue inside the band is pulled 3.9 m forward. The statue is about one radar beam wide, so the band fits it by luck; it has no outline (59 % of the distinct outline kept, section 7.5).
-- **No fill is good both on the statue and around it.** A constant is the best around the statue (0.55 m) and among the worst on it (3.44 m); nearest column is the reverse. Least squares is second around the statue (0.79 m) at 2.28 m on it.
-- **Colour guidance moved that depth to the wrong surface.** The joint bilateral fill is the worst fill on the statue (3.72 m). In the guide image the bronze figure (median lightness 0.21) is as dark as the windows of the wall 7 m away (0.17 to 0.23 at the wall's seeds beside it) and lighter than the patch at the statue's own seed (0.10); and the stone pedestal (0.44) matches the stone wall (0.43 to 0.60). The colour test therefore picks the wall's seeds for both parts of the statue.
-- **The overall average hides this.** The wall covers most pixels, so a constant depth already scores 1.29 m overall and the statue barely moves the overall number.
-- **Connectivity instead of colour helps overall but not on the statue.** The least-squares fill is the best overall (1.13 m) and near depth edges (2.16 m), but on the statue it is between nearest column and joint bilateral.
-- **Upper bound.** Keeping only the seeds within 0.3 m of the LiDAR (6 of 9; this uses the LiDAR, so it is not a method) barely changes the statue's numbers (joint bilateral 3.72 to 3.24 m, still the worst): the wrong seeds are not what moves the statue's depth.
-- **Reading.** Image guidance assumes that similar colour means similar depth. The joint bilateral fill compares each pixel with the seeds' pixels anywhere in its reach, so what matters is whether the object looks like *another seed's* surface, not only like what is right behind it. The bronze figure stands out against the window frames behind it (section 7.5), yet still takes the wall's depth, because it is as dark as the windows at the wall's seeds.
+![Figure 15](../figures/dense_scotty_1105.png)
+
+*Figure 15. Dense depth at Scotty from 9 radar seeds and one camera frame. Columns: the input and the LiDAR reference, then the four fills, from no image (nearest column) to image-guided (joint bilateral, least squares). Rows: the dense depth in 3D, coloured by the camera and seen from 15° to the side; the depth map (near is white, 2–10 m); a close-up of the statue, with its outline orange where it stands out from the background in colour and blue where it does not. Under each panel: mean absolute error against the LiDAR, over all pixels above the ground, on the statue, and around it.*
+
+Figure 15 reads column by column. The first column is what each fill is given and what it is scored against. The 9 radar seeds lie on one image row; one sits on the statue's bronze figure (3.22 m, 0.26 m from the LiDAR) and five on the curved wall 6.7–7.4 m behind; two are off by about 2 m. In the LiDAR depth the statue is a near-white shape (3.3 m) in front of a mid-grey wall (6.8 m). The 3D row is the clearest test: a correct depth would show the statue standing in front of a curved wall.
+
+- **Nearest column (no image).** Each column takes the depth of the seed nearest to it, so the depth map is a set of vertical bands and the 3D view a set of flat slabs with gaps between them. The band of the statue's seed is near-white and lands on the statue's middle, which gives the lowest statue error (1.51 m): the statue pixels inside the band are at 0.14 m, those outside it (the pedestal's wide base, the figure's sides) at 3.5 m. The same band pulls the wall above the statue 3.9 m forward (around: 1.18 m). The close-up shows a white stripe, not a statue: the statue is about one radar beam wide, so the band fits it by luck.
+- **Gaussian (image position).** The bands are blurred into a smooth surface, and the 3D view becomes one bent wall with a soft bulge where the statue's seed pulls it forward. Nothing in it follows the statue's outline. Overall error drops (1.41 m) because nothing is far off; the statue is in between its own depth and the wall's (2.05 m).
+- **Joint bilateral (position and colour).** The depth map now looks like the photograph: windows, statue and pedestal are all visible. That sharpness is texture copied from the image, not depth. The statue is dark grey, about as far as the wall (median 7.15 m against 3.34 m in the LiDAR), so it has the highest statue error (3.72 m), and in 3D it is torn into pieces pasted on the wall. Each pixel takes the depth of the seeds whose pixels have a similar colour. The bronze (lightness 0.21 in the guide) is as dark as the windows at the wall's seeds (0.17–0.23), and the stone pedestal (0.44) as light as the stone wall (0.43–0.60). The statue's own seed sits on a darker patch (0.10), so the colour term trusts it least.
+- **Edge-aware least squares (colour edges).** Depth spreads from the seed row along the image and slows down at colour edges. The wall comes out the flattest of the four in 3D, and this fill has the lowest overall error (1.13 m) and the lowest around the statue of the four (0.79 m). In the close-up the bronze figure is lighter than the wall and is cut off at its outline on top, where it stands out from the window frames. The pedestal, the same stone as the wall, gets the wall's depth, so the statue error stays at 2.28 m.
+
+Three things follow from the figure and the table above:
+
+- **The radar has the statue's depth; no fill has its shape.** The one fill that gets the statue's depth right (nearest column) has no outline. The fills that see outlines put the statue at, or towards, the wall.
+- **A sharp-looking depth map is not a correct one.** The joint bilateral map looks most like the scene and has the worst statue error. Its sharpness comes from the photograph, and image guidance assumes that similar colour means similar depth. Here the statue looks like *other seeds'* surfaces, so the assumption fails.
+- **The overall average hides the object.** The wall covers most pixels, so a constant depth (the median seed) already scores 1.29 m overall and 0.55 m around the statue, while it misses the statue by 3.44 m. No fill is good both on the statue and around it, so the statue, the pixels around it and the outline (section 7.5) have to be read together.
+
+The seeds are not what moves the statue's depth. Keeping only the 6 of 9 seeds within 0.3 m of the LiDAR, which uses the LiDAR and so is an upper bound and not a method, barely changes the statue's numbers: joint bilateral goes from 3.72 to 3.24 m and stays the worst. The second take ranks the fills the same way.
 
 ### 7.5 Distinct and similar outlines
 
