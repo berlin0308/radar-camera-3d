@@ -76,3 +76,16 @@ def iou(D, sil, ol, margin=20):
     pred = np.abs(D - d_obj) < np.abs(D - d_bg)
     p, t = pred[y0:y1, x0:x1], sil[y0:y1, x0:x1]
     return float((p & t).sum() / max((p | t).sum(), 1)), (y0, y1, x0, x1), float(d_obj), float(d_bg)
+
+
+def close_up(sil, top=12, bottom=4, half_width=0.7):
+    """The close-up box around the object (y0, y1, x0, x1): a little above and below it, as wide as 1.4 x its height."""
+    H, W = sil.shape; sl = ndi.find_objects(sil.astype(int))[0]
+    y0, y1 = max(sl[0].start - top, 0), min(sl[0].stop + bottom, H); cx = (sl[1].start + sl[1].stop) // 2; h = y1 - y0
+    return y0, y1, max(cx - int(half_width * h), 0), min(cx + int(half_width * h), W)
+
+
+def around(sil, gap=2):
+    """Pixels in the close-up box that are not the object (and more than `gap` px from it): what a fill must not paint at the object's depth."""
+    y0, y1, x0, x1 = close_up(sil); box = np.zeros(sil.shape, bool); box[y0:y1, x0:x1] = True
+    return box & ~ndi.binary_dilation(sil, iterations=gap)

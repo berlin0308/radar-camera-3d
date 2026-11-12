@@ -237,29 +237,30 @@ Point seeds alone are degenerate for a 2D smoothness term (the solution is flat 
 ### 7.3 Evaluation
 
 - Reference: the LiDAR projected into the image, five merged scans, range from the camera centre. Only pixels more than 0.3 m above the ground are scored; the ground has no seeds and is left out, not solved.
-- Regions: all pixels; pixels near a depth edge (a 7 × 7 window of LiDAR depths spanning more than 1 m, grown by 3 px); and the statue, cut out of the LiDAR (points within 0.9 m of its axis), split at 1.05 m into the stone pedestal and the bronze figure on top.
+- Regions: all pixels; pixels near a depth edge (a 7 × 7 window of LiDAR depths spanning more than 1 m, grown by 3 px); the statue, cut out of the LiDAR (points within 0.9 m of its axis), split at 1.05 m into the stone pedestal and the bronze figure on top; and **around the statue**, the other pixels of its close-up box (more than 2 px from its outline), mostly the wall 7 m behind. Object MAE alone rewards a fill that paints the statue's depth over its surroundings too; the around-the-statue MAE catches that, so the two are read together.
 
 Mean absolute error (m), 0–20 m, take 1 with radar seeds:
 
-| Fill | All above ground | Near depth edges | Statue | Stone pedestal | Bronze figure |
-|---|---|---|---|---|---|
-| Constant | 1.29 | 2.38 | 3.44 | 3.47 | 3.36 |
-| Nearest column | 1.62 | 2.58 | **1.51** | **1.80** | **0.59** |
-| Gaussian | 1.41 | 2.52 | 2.05 | 2.17 | 1.69 |
-| Joint bilateral | 1.64 | 2.64 | 3.72 | 4.10 | 2.52 |
-| Edge-aware least squares | **1.13** | **2.16** | 2.28 | 2.62 | 1.24 |
+| Fill | All above ground | Near depth edges | Statue | Around the statue | Stone pedestal | Bronze figure |
+|---|---|---|---|---|---|---|
+| Constant | 1.29 | 2.38 | 3.44 | **0.55** | 3.47 | 3.36 |
+| Nearest column | 1.62 | 2.58 | **1.51** | 1.18 | **1.80** | **0.59** |
+| Gaussian | 1.41 | 2.52 | 2.05 | 0.99 | 2.17 | 1.69 |
+| Joint bilateral | 1.64 | 2.64 | 3.72 | 1.44 | 4.10 | 2.52 |
+| Edge-aware least squares | **1.13** | **2.16** | 2.28 | 0.79 | 2.62 | 1.24 |
 
-Take 2 gives the same ranking: statue 1.50 (nearest), 1.91 (Gaussian), 2.78 (joint bilateral), 2.05 (least squares); all pixels 1.74, 1.66, 1.78, 1.35, constant 1.31.
+Take 2 gives the same ranking: statue 1.50 (nearest), 1.91 (Gaussian), 2.78 (joint bilateral), 2.05 (least squares); around it 1.42, 1.19, 1.27, 1.06, constant 0.58; all pixels 1.74, 1.66, 1.78, 1.35, constant 1.31.
 
 ![Figure 15](../figures/dense_scotty_1105.png)
 
-*Figure 15. Scotty, rig on a stand. First column: the camera with the 9 radar seeds, the LiDAR depth, and a close-up of the statue in the LiDAR with its outline, orange where it is distinct from the background in colour and blue where it is similar. Each further column is one fill. Top: the dense depth in 3D, each pixel placed at its depth in the camera's colours and seen from 35° to the side. Middle: the depth (grey, near is white). Bottom: the statue close-up with the same outline. Under each panel: mean absolute error (MAE) against the LiDAR, the share of pixels within a factor 1.25 of it, the error near depth edges, and the share of each outline kept (section 7.5). The constant fill is in the table only.*
+*Figure 15. Scotty, rig on a stand. First column: the camera with the 9 radar seeds, the LiDAR depth, and a close-up of the statue in the LiDAR with its outline, orange where it is distinct from the background in colour and blue where it is similar. Each further column is one fill. Top: the dense depth in 3D, each pixel placed at its depth in the camera's colours and seen from 35° to the side. Middle: the depth (grey, near is white). Bottom: the statue close-up with the same outline. Under each panel: mean absolute error (MAE) against the LiDAR, the share of pixels within a factor 1.25 of it, the error near depth edges, the MAE on and around the statue, and the share of each outline kept (section 7.5). The constant fill is in the table only.*
 
 Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json`, `dense_scotty_1105_take2.json` and `dense_scotty_1105_upper_bound.json`.
 
 ### 7.4 What the numbers say
 
-- **The radar has the statue's depth.** Its seed on the statue is 0.26 m off. Without the image (nearest column) the bronze figure is at 0.59 m error.
+- **The radar has the statue's depth, but no fill has its shape.** Its seed on the statue is 0.26 m off. The nearest-column fill has the lowest statue error (1.51 m) only because it paints that seed's depth into a 34 px wide band of columns that lands on the statue's middle: the 59 % of statue pixels inside the band are at 0.14 m error, the 41 % outside it (the pedestal's wide base, the figure's sides) at 3.5 m, and the wall above the statue inside the band is pulled 3.9 m forward. The statue is about one radar beam wide, so the band fits it by luck; it has no outline (59 % of the distinct outline kept, section 7.5).
+- **No fill is good both on the statue and around it.** A constant is the best around the statue (0.55 m) and among the worst on it (3.44 m); nearest column is the reverse. Least squares is second around the statue (0.79 m) at 2.28 m on it.
 - **Colour guidance moved that depth to the wrong surface.** The joint bilateral fill is the worst fill on the statue (3.72 m). In the guide image the bronze figure (median lightness 0.21) is as dark as the windows of the wall 7 m away (0.17 to 0.23 at the wall's seeds beside it) and lighter than the patch at the statue's own seed (0.10); and the stone pedestal (0.44) matches the stone wall (0.43 to 0.60). The colour test therefore picks the wall's seeds for both parts of the statue.
 - **The overall average hides this.** The wall covers most pixels, so a constant depth already scores 1.29 m overall and the statue barely moves the overall number.
 - **Connectivity instead of colour helps overall but not on the statue.** The least-squares fill is the best overall (1.13 m) and near depth edges (2.16 m), but on the statue it is between nearest column and joint bilateral.

@@ -15,7 +15,7 @@ from .seeds import static_cells, drop_sidelobes, first_returns, to_image
 from .jbu import upsample, nearest_column
 from .wls import fill as wls_fill
 from ..eval.lidar_depth import lidar_depth_image, errors, edge_band
-from ..eval.silhouette import silhouette, outline, classes, edge_accuracy
+from ..eval.silhouette import silhouette, outline, classes, edge_accuracy, close_up, around
 from ..recon.closeup import camera_frame
 
 DMAX = 20.0
@@ -57,8 +57,7 @@ def plot(out, trace, small, uvs, d, fills, ref, above, res, obj=None, sil=None, 
     gkw = dict(cmap=cmap, vmin=vmin, vmax=vmax); lab = dict(fontsize=8.5, labelpad=3); m20 = lambda r: r["0-20 m"]
     rows = 3 if sil is not None else 2
     if sil is not None:
-        sl = ndi.find_objects(sil.astype(int))[0]; h = sl[0].stop + 4 - (sl[0].start - 12); cx = (sl[1].start + sl[1].stop) // 2
-        y0, y1 = max(sl[0].start - 12, 0), min(sl[0].stop + 4, H); x0, x1 = max(cx - int(0.7 * h), 0), min(cx + int(0.7 * h), W)
+        y0, y1, x0, x1 = close_up(sil)
     hr = [270 / 480, H / W] + ([(y1 - y0) / (x1 - x0)] if sil is not None else [])
     fig, ax = plt.subplots(rows, nc, figsize=(2.75 * nc + 0.6, 2.75 * sum(hr) + 1.6), gridspec_kw=dict(height_ratios=hr), constrained_layout=True)
 
@@ -81,8 +80,8 @@ def plot(out, trace, small, uvs, d, fills, ref, above, res, obj=None, sil=None, 
                      f"near depth edges {m20(r['edge_band'])['mae']:.2f} m", **lab)
         if sil is not None:
             a = ax[2, j]; a.imshow(D[y0:y1, x0:x1], **gkw); outline_dots(a); ea = r["edge_accuracy"]
-            a.set_xlabel(f"object MAE {m20(r['object'])['mae']:.2f} m\noutline kept: distinct {ea['distinct']['accuracy']:.0%}, "
-                         f"similar {ea['similar']['accuracy']:.0%}", **lab)
+            a.set_xlabel(f"MAE object {m20(r['object'])['mae']:.2f} m · around it {m20(r['around_object'])['mae']:.2f} m\n"
+                         f"outline kept: distinct {ea['distinct']['accuracy']:.0%}, similar {ea['similar']['accuracy']:.0%}", **lab)
     for i, t in enumerate(["3D view (camera colours)", "depth", "object close-up"][:rows]):
         ax[i, 0].set_ylabel(t, fontsize=10, fontweight="bold")
     for a in ax.ravel():
@@ -146,8 +145,11 @@ def main():
 
     band = edge_band(ref)
     masks = {"above_ground": above, "edge_band": above & band, "off_band": above & ~band}
+    sil = ol = cls = None
     if obj is not None:
         masks["object"] = obj
+        if obj.any():                                                    # the object's outline and what surrounds it in the close-up
+            sil = silhouette(obj); masks["around_object"] = around(sil) & above
         if a.object_split is not None:
             masks["object, lower part"] = obj & (height < a.object_split); masks["object, upper part"] = obj & (height >= a.object_split)
     res = {}
@@ -156,9 +158,8 @@ def main():
     for name, sm in sure.items():
         res[name + ", confident"] = {"all": errors(fills[name], ref, sm), **{k: errors(fills[name], ref, m & sm) for k, m in masks.items()},
                                      "coverage": float((sm & np.isfinite(ref) & above).sum() / max((np.isfinite(ref) & above).sum(), 1))}
-    sil = ol = cls = None
-    if obj is not None and obj.any():                                    # the object's outline, split by how well it shows in colour
-        sil = silhouette(obj); ol = outline(sil, lab, ref); cls = classes(ol)
+    if sil is not None:                                                  # the object's outline, split by how well it shows in colour
+        ol = outline(sil, lab, ref); cls = classes(ol)
         res["outline"] = dict(px={k: int(v.sum()) for k, v in cls.items()}, contrast_lab=dict(distinct=15.0, similar=7.0),
                               range_inside_m=float(np.nanmedian(ol["d_in"][ol["edge"]])), range_outside_m=float(np.nanmedian(ol["d_out"][ol["edge"]])))
         for name, D in fills.items():

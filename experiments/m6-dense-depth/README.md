@@ -81,13 +81,15 @@ Scene: `2026-11-05.16-34-29` (second take `16-36-41`), the statue 3.2 m ahead wi
 
 Mean absolute error, 0–20 m, above the ground (m):
 
-| Fill | All | Near depth edges | Statue | Stone pedestal | Bronze figure |
-|---|---|---|---|---|---|
-| Constant (median seed) | 1.29 | 2.38 | 3.44 | 3.47 | 3.36 |
-| Nearest seed per column | 1.62 | 2.58 | **1.51** | **1.80** | **0.59** |
-| Gaussian | 1.41 | 2.52 | 2.05 | 2.17 | 1.69 |
-| Joint bilateral | 1.64 | 2.64 | 3.72 | 4.10 | 2.52 |
-| Edge-aware least squares | **1.13** | **2.16** | 2.28 | 2.62 | 1.24 |
+| Fill | All | Near depth edges | Statue | Around the statue | Stone pedestal | Bronze figure |
+|---|---|---|---|---|---|---|
+| Constant (median seed) | 1.29 | 2.38 | 3.44 | **0.55** | 3.47 | 3.36 |
+| Nearest seed per column | 1.62 | 2.58 | **1.51** | 1.18 | **1.80** | **0.59** |
+| Gaussian | 1.41 | 2.52 | 2.05 | 0.99 | 2.17 | 1.69 |
+| Joint bilateral | 1.64 | 2.64 | 3.72 | 1.44 | 4.10 | 2.52 |
+| Edge-aware least squares | **1.13** | **2.16** | 2.28 | 0.79 | 2.62 | 1.24 |
+
+"Around the statue": the rest of the statue's close-up box, more than 2 px from its outline (mostly wall). Nearest column wins on the statue only because the statue seed's 34 px column band lands on its middle (0.14 m inside the band, 3.5 m outside); the wall in that band is pulled 3.9 m forward. Read statue and around-the-statue together.
 
 Second take, same order: all 1.31, 1.74, 1.66, 1.78, 1.35; statue 3.40, 1.50, 1.91, 2.78, 2.05. With only the seeds the LiDAR agrees with (an upper bound): statue 3.40, 1.51, 1.96, 3.24, 2.35.
 
