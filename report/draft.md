@@ -6,7 +6,7 @@ Conventions for this draft:
 
 - Every number and figure comes from code in `src/radar/`, `src/calib/`, `src/recon/`, `src/grt/`, `src/fusion/` and `src/eval/`. Nothing comes from `src/ext/` or from Yining's reconstruction work.
 - `[TODO: ...]` marks text still to write. Figures still to make are grey placeholders. Figures that exist are embedded from `figures/` and `notes/fig/`; most still need re-exporting for the PDF (larger text, no trace names in titles).
-- Citations marked *(add to note.bib)* are not in the bibliography yet. Each was taken from the reference list of RadarHD or GRT and still has to be checked against the original before it goes in.
+- Citations marked *(add to note.bib)* are in `report-extra.bib` in Overleaf, not yet in `note.bib`. Their bibliographic details were checked on 11/11 (see References).
 - Single author, so the text says "I", not "we".
 
 ---
@@ -372,14 +372,14 @@ I built a 3D camera from a single-chip radar and a fisheye camera, starting from
 
 In `note.bib` today, each checked: Kopf et al. 2007 (joint bilateral upsampling), Rao 2018 (TI MIMO radar application report), Long et al. 2021 (radar–camera depth completion), Huang et al. 2025 (GRT), Vizzo et al. 2023 (KISS-ICP).
 
-To add, each taken from the reference lists of RadarHD or GRT and still to be checked against the original:
+Added 2026-11-11, in `report-extra.bib` (written by `filecontents` at the top of `report.tex`; move into `note.bib` at the next Overleaf commit). Authors, venue, year and pages were checked against an index or publisher page on 11/11. Whether each paper says what this report cites it for was checked only from its abstract:
 
-- Prabhakara et al., "High resolution point clouds from mmWave radar," ICRA 2023 (RadarHD).
-- Prabhakara et al., "Exploring mmWave radar and camera fusion for high-resolution and long-range depth imaging," IROS 2022.
-- Guan et al., "Through fog high-resolution imaging using millimeter wave radar," CVPR 2020 (HawkEye).
-- Kellner et al., "Instantaneous ego-motion estimation using Doppler radar," ITSC 2013.
-- Richards, *Fundamentals of Radar Signal Processing*, 2005 (CFAR), if Section 4.1 needs a citation.
-- Levin et al., "Colorization using optimization," SIGGRAPH 2004, for the edge-aware least-squares formulation. Not from those lists; check that it is the right reference.
+- Prabhakara et al., "High resolution point clouds from mmWave radar," ICRA 2023, pp. 4135–4142 (RadarHD; arXiv 2206.09273).
+- Prabhakara et al., "Exploring mmWave radar and camera fusion for high-resolution and long-range depth imaging," IROS 2022, pp. 3995–4002 (arXiv 2106.07856, earlier titled "A hybrid mmWave and camera system for long-range depth imaging"; pages from the GRT reference list, not seen on a publisher page).
+- Guan et al., "Through fog high-resolution imaging using millimeter wave radar," CVPR 2020, pp. 11464–11473 per the CVF open-access page (HawkEye).
+- Kellner et al., "Instantaneous ego-motion estimation using Doppler radar," ITSC 2013, pp. 869–874.
+- Richards, *Fundamentals of Radar Signal Processing*, McGraw-Hill, 2005 (CFAR).
+- Levin, Lischinski and Weiss, "Colorization using optimization," ACM TOG 23(3), pp. 689–694, 2004, for the edge-aware least-squares formulation.
 
 ---
 
