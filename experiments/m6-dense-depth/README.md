@@ -112,7 +112,7 @@ No fill keeps a similar outline (all score like a constant). On a distinct one, 
 
 ![Scotty static: one column per fill; 3D view, depth, statue close-up](../../figures/dense_scotty_1105.png)
 
-*`2026-11-05.16-34-29` at 30 s. First column: camera with the 9 seeds, LiDAR depth, LiDAR statue close-up with its outline (orange distinct, blue similar). One column per fill: 3D view in camera colours (`src/fusion/view3d.py`), depth (grey, near is white, 2–10 m), statue close-up; numbers under each panel. The constant fill is in the JSON only. Numbers: `dense_scotty_1105.json`, `dense_scotty_1105_take2.json`, `dense_scotty_1105_upper_bound.json` in this folder.*
+*`2026-11-05.16-34-29` at 30 s. Columns: input and LiDAR, then the four fills. Rows: 3D view in camera colours, depth (near is white, 2–10 m), statue close-up (outline orange distinct, blue similar). MAE against the LiDAR. Numbers: `dense_scotty_1105.json`, `dense_scotty_1105_take2.json`, `dense_scotty_1105_upper_bound.json` in this folder.*
 
 ## Conclusion
 Pending: one scene only. Next are a scene with a depth edge between wide objects (Scotty in front of its wall, the Jeep in front of the car row) and the night pair.

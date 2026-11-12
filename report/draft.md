@@ -253,7 +253,7 @@ Take 2 gives the same ranking: statue 1.50 (nearest), 1.91 (Gaussian), 2.78 (joi
 
 ![Figure 15](../figures/dense_scotty_1105.png)
 
-*Figure 15. Scotty, rig on a stand. First column: the camera with the 9 radar seeds, the LiDAR depth, and a close-up of the statue in the LiDAR with its outline, orange where it is distinct from the background in colour and blue where it is similar. Each further column is one fill. Top: the dense depth in 3D, each pixel placed at its depth in the camera's colours and seen from 35° to the side. Middle: the depth (grey, near is white). Bottom: the statue close-up with the same outline. Under each panel: mean absolute error (MAE) against the LiDAR, the share of pixels within a factor 1.25 of it, the error near depth edges, the MAE on and around the statue, and the share of each outline kept (section 7.5). The constant fill is in the table only.*
+*Figure 15. Dense depth at Scotty. Columns: input and LiDAR, then the four fills. Rows: 3D view in camera colours, depth (near is white), statue close-up (outline orange where distinct from the background, blue where similar). MAE against the LiDAR.*
 
 Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json`, `dense_scotty_1105_take2.json` and `dense_scotty_1105_upper_bound.json`.
 

@@ -67,21 +67,19 @@ def plot(out, trace, small, uvs, d, fills, ref, above, res, obj=None, sil=None, 
 
     a = ax[0, 0]; a.imshow(show, aspect="auto")
     a.scatter(uvs[:, 0], uvs[:, 1], s=40, c="#ff3b30", edgecolors="white", linewidths=.8)
-    a.set_title("camera and radar seeds", fontsize=10, fontweight="bold"); a.set_xlabel(f"{len(d)} seeds, all on one image row", **lab)
-    a = ax[1, 0]; a.imshow(lidar, **gkw); a.set_xlabel("LiDAR, used only for scoring", **lab)
+    a.set_title("camera and radar seeds", fontsize=10, fontweight="bold"); a.set_xlabel(f"{len(d)} radar seeds", **lab)
+    a = ax[1, 0]; a.imshow(lidar, **gkw); a.set_xlabel("LiDAR", **lab)
     if sil is not None:
         a = ax[2, 0]; a.imshow(lidar[y0:y1, x0:x1], **gkw); outline_dots(a)
-        a.set_xlabel("LiDAR; outline orange where distinct\nfrom the background, blue where similar", **lab)
+        a.set_xlabel("LiDAR", **lab)
     for j, n in enumerate(names, start=1):
         r = res[n]; D = fills[n]
-        a = ax[0, j]; a.imshow(render(R, D, show), aspect="auto"); a.set_title(HEAD.get(n, n), fontsize=10, fontweight="bold")
+        a = ax[0, j]; a.imshow(render(R, D, show, yaw=15.0, pitch=10.0), aspect="auto"); a.set_title(HEAD.get(n, n), fontsize=10, fontweight="bold")
         a = ax[1, j]; im = a.imshow(D, **gkw)
-        a.set_xlabel(f"MAE {m20(r['above_ground'])['mae']:.2f} m · within 1.25×: {m20(r['above_ground'])['d125']:.0%}\n"
-                     f"near depth edges {m20(r['edge_band'])['mae']:.2f} m", **lab)
+        a.set_xlabel(f"MAE: {m20(r['above_ground'])['mae']:.2f} m", **lab)
         if sil is not None:
-            a = ax[2, j]; a.imshow(D[y0:y1, x0:x1], **gkw); outline_dots(a); ea = r["edge_accuracy"]
-            a.set_xlabel(f"MAE object {m20(r['object'])['mae']:.2f} m · around it {m20(r['around_object'])['mae']:.2f} m\n"
-                         f"outline kept: distinct {ea['distinct']['accuracy']:.0%}, similar {ea['similar']['accuracy']:.0%}", **lab)
+            a = ax[2, j]; a.imshow(D[y0:y1, x0:x1], **gkw); outline_dots(a)
+            a.set_xlabel(f"MAE (object): {m20(r['object'])['mae']:.2f} m\nMAE (around): {m20(r['around_object'])['mae']:.2f} m", **lab)
     for i, t in enumerate(["3D view (camera colours)", "depth", "object close-up"][:rows]):
         ax[i, 0].set_ylabel(t, fontsize=10, fontweight="bold")
     for a in ax.ravel():
