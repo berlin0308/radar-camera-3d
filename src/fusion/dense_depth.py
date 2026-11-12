@@ -39,68 +39,55 @@ def seed_minus_lidar(uvs, d, ref):
 
 
 SHOWN = ["nearest column", "Gaussian", "joint bilateral", "edge-aware least squares"]   # the constant fill is in the JSON, not drawn
-ROW = {"nearest column": "nearest column\n(no image)", "Gaussian": "Gaussian\n(image position)",
-       "joint bilateral": "joint bilateral\n(position + colour)", "edge-aware least squares": "least squares\n(colour edges)"}
+HEAD = {"nearest column": "nearest column", "Gaussian": "Gaussian", "joint bilateral": "joint bilateral", "edge-aware least squares": "edge-aware least squares"}
 DISTINCT, SIMILAR = "#ff7f0e", "#1f9fff"          # outline colours, on grey depth
 
 
-def plot(out, small, uvs, d, fills, ref, above, res, obj=None, sil=None, ol=None, cls=None, vmin=0.0, vmax=DMAX):
-    """One row per fill, one column per view (depth, error, object close-up); the numbers under each panel."""
+def plot(out, trace, small, uvs, d, fills, ref, above, res, obj=None, sil=None, ol=None, cls=None, vmin=0.0, vmax=DMAX):
+    """Columns: the input / the LiDAR, then one per fill. Rows: 3D view in camera colours, depth, object close-up."""
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     from scipy import ndimage as ndi
-    H, W = ref.shape; names = [n for n in SHOWN if n in fills]
+    from .view3d import intrinsics, rays, render
+    H, W = ref.shape; names = [n for n in SHOWN if n in fills]; nc = len(names) + 1
     gain = float(np.clip(0.85 / max(np.percentile(small, 95), 1e-3), 1.0, 2.5)); show = np.clip(small * gain, 0, 1)
-    box = None
+    R = rays(intrinsics(trace), H, W)
+    dist, (iy, ix) = ndi.distance_transform_edt(~np.isfinite(ref), return_indices=True)
+    lidar = np.where(dist <= 3, ref[iy, ix], np.nan)                     # the LiDAR rows, widened to close the gaps between them
+    cmap = matplotlib.colormaps["gray_r"].copy(); cmap.set_bad("#bcd3e8")
+    gkw = dict(cmap=cmap, vmin=vmin, vmax=vmax); lab = dict(fontsize=8.5, labelpad=3); m20 = lambda r: r["0-20 m"]
+    rows = 3 if sil is not None else 2
     if sil is not None:
-        sl = ndi.find_objects(sil.astype(int))[0]; m = 12
-        box = (max(sl[0].start - m, 0), min(sl[0].stop + 4, H), max(sl[1].start - m, 0), min(sl[1].stop + m, W))
-    ncol = 3 if box else 2; ratios = [W / H] * 2 + ([(box[3] - box[2]) / (box[1] - box[0])] if box else [])
-    fig, ax = plt.subplots(len(names) + 1, ncol, figsize=(1.85 * sum(ratios) + 0.8, 2.15 * (len(names) + 1) + 0.9),
-                           gridspec_kw=dict(width_ratios=ratios), constrained_layout=True)
-    gkw = dict(cmap="gray_r", vmin=vmin, vmax=vmax); ekw = dict(cmap="magma", vmin=0, vmax=5)
-    lab = dict(fontsize=8.5, labelpad=3); m20 = lambda r: r["0-20 m"]
-    yy, xx = np.nonzero(np.isfinite(ref) & above)
+        sl = ndi.find_objects(sil.astype(int))[0]; h = sl[0].stop + 4 - (sl[0].start - 12); cx = (sl[1].start + sl[1].stop) // 2
+        y0, y1 = max(sl[0].start - 12, 0), min(sl[0].stop + 4, H); x0, x1 = max(cx - int(0.7 * h), 0), min(cx + int(0.7 * h), W)
+    hr = [270 / 480, H / W] + ([(y1 - y0) / (x1 - x0)] if sil is not None else [])
+    fig, ax = plt.subplots(rows, nc, figsize=(2.75 * nc + 0.6, 2.75 * sum(hr) + 1.6), gridspec_kw=dict(height_ratios=hr), constrained_layout=True)
 
-    def outline_dots(a, y0=0, x0=0, s=4):
+    def outline_dots(a, s=5):
         for c, col in [("distinct", DISTINCT), ("similar", SIMILAR)]:
             oy, ox = np.nonzero(cls[c]); a.scatter(ox - x0, oy - y0, s=s, c=col, marker="s", linewidths=0)
 
-    a = ax[0, 0]; a.imshow(show)
-    a.scatter(uvs[:, 0], uvs[:, 1], s=46, c=d, edgecolors="#ff3b30", linewidths=1.4, **gkw)
-    a.set_title("camera and radar seeds", fontsize=9.5); a.set_xlabel(f"{len(d)} seeds (red rings), shaded by range", **lab)
-    a = ax[0, 1]; a.imshow(show * 0.45)
-    if obj is not None:
-        oy, ox = np.nonzero(obj); a.scatter(ox, oy, s=1.2, c="#ffcc00", marker="s", linewidths=0)
-        a.set_xlim(0, W); a.set_ylim(H, 0); a.set_title("object, from the LiDAR", fontsize=9.5)
-        a.set_xlabel(f"{int(obj.sum())} pixels, scored on their own", **lab)
-    else:
-        a.set_title("camera, dimmed", fontsize=9.5)
-    if box:
-        y0, y1, x0, x1 = box; a = ax[0, 2]; a.imshow(show[y0:y1, x0:x1]); outline_dots(a, y0, x0)
-        o = res["outline"]
-        a.set_title("object outline", fontsize=9.5)
-        a.set_xlabel("orange: distinct\nblue: similar to background", **lab)
-    ax[0, 0].set_ylabel("input", fontsize=10)
-
-    for i, n in enumerate(names, start=1):
+    a = ax[0, 0]; a.imshow(show, aspect="auto")
+    a.scatter(uvs[:, 0], uvs[:, 1], s=40, c="#ff3b30", edgecolors="white", linewidths=.8)
+    a.set_title("camera and radar seeds", fontsize=10, fontweight="bold"); a.set_xlabel(f"{len(d)} seeds, all on one image row", **lab)
+    a = ax[1, 0]; a.imshow(lidar, **gkw); a.set_xlabel("LiDAR, used only for scoring", **lab)
+    if sil is not None:
+        a = ax[2, 0]; a.imshow(lidar[y0:y1, x0:x1], **gkw); outline_dots(a)
+        a.set_xlabel("LiDAR; outline orange where distinct\nfrom the background, blue where similar", **lab)
+    for j, n in enumerate(names, start=1):
         r = res[n]; D = fills[n]
-        a = ax[i, 0]; im = a.imshow(D, **gkw)
-        a.set_xlabel(f"MAE {m20(r['above_ground'])['mae']:.2f} m · within 1.25×: {m20(r['above_ground'])['d125']:.0%}", **lab)
-        a.set_ylabel(ROW.get(n, n), fontsize=10)
-        a = ax[i, 1]; a.imshow(show * 0.3)
-        ie = a.scatter(xx, yy, s=1.2, c=np.abs(D - ref)[yy, xx], marker="s", linewidths=0, **ekw); a.set_xlim(0, W); a.set_ylim(H, 0)
-        a.set_xlabel(f"near depth edges {m20(r['edge_band'])['mae']:.2f} m · elsewhere {m20(r['off_band'])['mae']:.2f} m", **lab)
-        if box:
-            a = ax[i, 2]; a.imshow(D[y0:y1, x0:x1], **gkw); outline_dots(a, y0, x0)
-            ea = r["edge_accuracy"]
-            a.set_xlabel(f"object MAE {m20(r['object'])['mae']:.2f} m\ndistinct outline kept {ea['distinct']['accuracy']:.0%}\nsimilar outline kept {ea['similar']['accuracy']:.0%}", **lab)
-    heads = ["depth", "error against the LiDAR", "object close-up"]
-    for j in range(ncol):
-        ax[1, j].set_title(heads[j], fontsize=10, fontweight="bold")
+        a = ax[0, j]; a.imshow(render(R, D, show), aspect="auto"); a.set_title(HEAD.get(n, n), fontsize=10, fontweight="bold")
+        a = ax[1, j]; im = a.imshow(D, **gkw)
+        a.set_xlabel(f"MAE {m20(r['above_ground'])['mae']:.2f} m · within 1.25×: {m20(r['above_ground'])['d125']:.0%}\n"
+                     f"near depth edges {m20(r['edge_band'])['mae']:.2f} m", **lab)
+        if sil is not None:
+            a = ax[2, j]; a.imshow(D[y0:y1, x0:x1], **gkw); outline_dots(a); ea = r["edge_accuracy"]
+            a.set_xlabel(f"object MAE {m20(r['object'])['mae']:.2f} m\noutline kept: distinct {ea['distinct']['accuracy']:.0%}, "
+                         f"similar {ea['similar']['accuracy']:.0%}", **lab)
+    for i, t in enumerate(["3D view (camera colours)", "depth", "object close-up"][:rows]):
+        ax[i, 0].set_ylabel(t, fontsize=10, fontweight="bold")
     for a in ax.ravel():
         a.set_xticks([]); a.set_yticks([])
-    fig.colorbar(im, ax=ax[1:, 0], location="bottom", shrink=.8, aspect=30, label="range from the camera (m), near is white")
-    fig.colorbar(ie, ax=ax[1:, 1], location="bottom", shrink=.8, aspect=30, label="absolute error (m)")
+    fig.colorbar(im, ax=ax[1:, -1], location="right", shrink=.9, aspect=25, label="range from the camera (m), near is white")
     fig.savefig(out, dpi=150); print("saved", out)
 
 
@@ -191,7 +178,7 @@ def main():
         print(f"{name:34s}" + "".join(f"{res[name][k]['0-20 m']['mae']:15.2f}" for k in masks)
               + (f"   coverage {res[name]['coverage']:.0%}" if "coverage" in res[name] else ""))
 
-    plot(a.out, small, uvs, d, fills, ref, above, res, obj, sil, ol, cls, vmin=a.vmin, vmax=a.vmax)
+    plot(a.out, trace, small, uvs, d, fills, ref, above, res, obj, sil, ol, cls, vmin=a.vmin, vmax=a.vmax)
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ Conventions for this draft:
 
 ![Figure 1](../figures/dense_scotty_1105.png)
 
-*Figure 1. Teaser, for now the full dense-depth figure of section 7 (Figure 15). To make: a two-row cut of it, the input row and the joint bilateral row.*
+*Figure 1. Teaser, for now the full dense-depth figure of section 7 (Figure 15). To make: its top row only, the camera and the four fills in 3D.*
 
 ---
 
@@ -253,7 +253,7 @@ Take 2 gives the same ranking: statue 1.50 (nearest), 1.91 (Gaussian), 2.78 (joi
 
 ![Figure 15](../figures/dense_scotty_1105.png)
 
-*Figure 15. Scotty, rig on a stand. Top row: the camera with the 9 radar seeds, the statue's pixels from the LiDAR, and the statue's outline, orange where it is distinct from the background in colour and blue where it is similar. Each further row is one fill: its depth (grey, near is white), its error against the LiDAR above the ground, and a close-up of the statue with the same outline. Under each panel: mean absolute error (MAE), the share of pixels within a factor 1.25 of the LiDAR, the error near depth edges and elsewhere, and the share of each outline kept (section 7.5). The constant fill is in the table only.*
+*Figure 15. Scotty, rig on a stand. First column: the camera with the 9 radar seeds, the LiDAR depth, and a close-up of the statue in the LiDAR with its outline, orange where it is distinct from the background in colour and blue where it is similar. Each further column is one fill. Top: the dense depth in 3D, each pixel placed at its depth in the camera's colours and seen from 35° to the side. Middle: the depth (grey, near is white). Bottom: the statue close-up with the same outline. Under each panel: mean absolute error (MAE) against the LiDAR, the share of pixels within a factor 1.25 of it, the error near depth edges, and the share of each outline kept (section 7.5). The constant fill is in the table only.*
 
 Numbers: `experiments/m6-dense-depth/dense_scotty_1105.json`, `dense_scotty_1105_take2.json` and `dense_scotty_1105_upper_bound.json`.
 
