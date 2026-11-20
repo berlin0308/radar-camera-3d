@@ -86,6 +86,22 @@ Not again: another calibration inside 3 m; walks in place of static scenes; stop
 
 Afterwards: copy to nunga, `./validate.sh`, labels into `notes/shots.csv`, the tape numbers and photos with the upload, a session entry below, then `python -m src.calib.plane_solve` with the taped height and `pytest`.
 
+## 2026-11-19 · Session 5 · Scotty after dark: a height stack and an orbit
+
+Rig unchanged (OS-0-128; `config.yaml` and `radar.json` identical to 11/05). Eleven traces, 35 GB, all four streams complete, at most 6 invalid radar frames per trace. No notes came with the upload, so the content below is read from the frames, the IMU and the LiDAR. Every outdoor trace is after dark: the windows of the Scotty wall are lit and the statue is a silhouette against them. Camera exposure not recorded.
+
+| Trace | Length | Content |
+|---|---|---|
+| `17-18-38` | 39 s | dry run in the lab, rig static; people in view: local only, not for figures |
+| `17-26-10` | 9.1 min | handheld walk to the Scotty plaza, campus streets after dark |
+| `17-40-44`, `17-43-28`, `17-45-02`, `17-46-37`, `17-48-40`, `17-51-19`, `17-53-30` | 40–70 s each | **height stack**: rig static at the Scotty statue, one mark, LiDAR at 1.66, 1.64, 1.82, 1.72, 1.91, 1.54 and 1.41 m above the ground (from the ground plane in the LiDAR); the statue 2.6 m from the LiDAR, 2.5 m from the radar |
+| `17-55-35` | 148 s | handheld orbit of the Scotty statue |
+| `18-00-07` | 9.2 min | handheld walk back to the lab |
+
+Quality. The extrinsics hold: the radar's static cells land within 1–5 cm of LiDAR surfaces, the same as on 11/05. The mark is about 0.6 m closer to the statue than the 11/05 static takes (3.2 m from the LiDAR), so the two days are not one view. Between takes the rig moves a little: the statue shifts by up to 0.5 m sideways in the rig's frame, so the takes need registering before they can be stacked. The radar puts a seed on the statue in 5 of the 7 takes (none in `17-43-28` and `17-45-02`); its strongest near return is an object about 1.2 m beside the statue, at 3.4 m. Still not recorded: the same stack by day.
+
+Used for: nothing yet. Planned: night dense depth and the height stack (proposal items 2 and 3), the night orbit reconstruction (item 4), bronze and stone by night (item 6). See [PROGRESS.md](PROGRESS.md).
+
 ## 2026-11-05 · Session 4 · static scenes, Scotty plaza, a campus walk
 
 Rig unchanged (OS-0-128, same config). Ten traces, 66 GB, all pass `roverd validate`: an empty lab and a person squatting at 2 m, an outdoor static scene with a car and tripods (twice), a walk to the Scotty plaza, two static takes at Scotty, a Scotty orbit, and a 13-minute campus walk that was **cut off** (use 0-616 s; the camera needs rewrapping to read past 297 s), and a **night walk**, `2026-11-05.19-11-08`, 21.5 min from 19:11, 28 GB: about 3 min on the desk and in the lab, then a walk of about 15 min outdoors along the road with headlights, tail lights and a few people, and a stop on the desk at the end. All four streams complete, 6 invalid radar frames in 25,836, the file ends cleanly (the rig was shut down properly). Camera exposure not recorded. Seven figures on it and on 11/03 (session health, board placements, static-scene heatmaps, rig geometry, ego-motion Doppler, radar on LiDAR, Scotty dusk against day): [notes/sessions/2026-11-05.md](notes/sessions/2026-11-05.md). Still not recorded: any static scene after dark (the lab-dark and Scotty static takes of the plan are not on nunga; the night walk is the only trace after dark). GRT dumps for every trace of 10/29, 11/03 and 11/05 (the two orbits, the night walk included) written 11/8 to `/data/berlin/grt/`: [notes/handover-2026-11-08-berlin.md](notes/handover-2026-11-08-berlin.md).

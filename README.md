@@ -14,6 +14,7 @@ Author: Po-Lin Chen. Contributor: Yining (extensions, 3D reconstruction; acknowl
 | Path | What |
 |---|---|
 | `shoot.sh`, `sync.sh`, `validate.sh`, `check_valid.py` | rig-day recording and data checks |
+| `PROGRESS.md` | the proposal's six items and three hopes: data on nunga, code, status, next step |
 | `SESSIONS.md` | one entry per rig session: rig state, traces, data quality, what each trace is for; the shot list for the next session on top |
 | `AGENDA_session2.md` | rig-day procedure (start-up, recording, shut-down, copying) |
 | `notes/shots.csv` | which trace is which shot |
