@@ -200,13 +200,25 @@ The four calibrations on the same second of the parking-lot frame make the compa
 
 ## 7. Dense depth
 
-*[m6-dense-depth](experiments/m6-dense-depth/README.md) · preliminary (11/11, two static day scenes: the radar seed on the Scotty statue is 0.26 m off, but the joint bilateral fill moves the statue to the wall's depth because the two share a colour; an edge-aware least-squares fill is best overall, not on the statue; night not recorded)*
+*[m6-dense-depth](experiments/m6-dense-depth/README.md) · preliminary (11/11, two static day scenes: the radar seed on the Scotty statue is 0.26 m off, but the joint bilateral fill moves the statue to the wall's depth because the two share a colour; an edge-aware least-squares fill is best overall, not on the statue; night and several heights in 7.1)*
 
 The main deliverable; needs section 6 first. Radar points projected into the image are filled by joint bilateral upsampling (normalized convolution) and an edge-aware weighted least-squares solver from HW3; a scale-aligned monocular depth network is the baseline; the 128-beam LiDAR projected into the camera is ground truth; the metric is MAE by distance bin, day and night. The rig day 1 preview, with no LiDAR and a co-located guess, produced a dense cloud whose shape was mostly the camera's and the ground prior's, because a frame gives only 5–10 radar points; accumulation (section 9) is what will make the radar's share visible.
 
 ![Preview](experiments/m6-dense-depth/figures/viewer_preview_2026-10-19.png)
 
 *Radar points (orange) and a camera-coloured dense cloud, 10/19 walk at 800 s.*
+
+---
+
+### 7.1 Night, and several heights at one mark
+
+*[m7-multi-height](experiments/m7-multi-height/README.md) · done (11/20)*
+
+Seven night takes at one mark, 2.5 m from the Scotty statue, the rig raised or lowered between them, each registered to the first with its LiDAR (point-to-plane ICP, 1.8–2.6 cm). The radar's plane crosses the statue between 0.83 and 1.49 m. From the first take alone, at night: 1.22–1.30 m above the ground for the four fills, and none of the outline is distinct in colour, so every fill keeps 48–52 % of it (constant 46 %). With all seven heights (66 seeds): 1.76–2.35 m above the ground. Least squares is better on the statue (1.81 against 2.44 m), but the scene is worse. The power along the statue's azimuth is the same from every height, with the peak at the bronze's range. So a seed's height is the radar's, and the stack adds seeds at the wrong height. The stone shows only from the two lowest heights (14 dB, against 32 for the bronze); the LiDAR sees the stone brighter (reflectivity 23 against 4). The two takes without a statue seed are a CFAR effect: an object 0.6 m beyond the statue's range raises the threshold by 8–10 dB.
+
+![Seven heights](figures/stack_scotty_1119.png)
+
+![Bronze and stone](figures/materials_scotty_1119.png)
 
 ---
 

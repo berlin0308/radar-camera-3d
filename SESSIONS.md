@@ -94,13 +94,13 @@ Rig unchanged (OS-0-128; `config.yaml` and `radar.json` identical to 11/05). Ele
 |---|---|---|
 | `17-18-38` | 39 s | dry run in the lab, rig static; people in view: local only, not for figures |
 | `17-26-10` | 9.1 min | handheld walk to the Scotty plaza, campus streets after dark |
-| `17-40-44`, `17-43-28`, `17-45-02`, `17-46-37`, `17-48-40`, `17-51-19`, `17-53-30` | 40–70 s each | **height stack**: rig static at the Scotty statue, one mark, LiDAR at 1.66, 1.64, 1.82, 1.72, 1.91, 1.54 and 1.41 m above the ground (from the ground plane in the LiDAR); the statue 2.6 m from the LiDAR, 2.5 m from the radar |
+| `17-40-44`, `17-43-28`, `17-45-02`, `17-46-37`, `17-48-40`, `17-51-19`, `17-53-30` | 40–70 s each | **height stack**: rig static at the Scotty statue, one mark, LiDAR at 1.53, 1.53, 1.62, 1.48, 1.42, 1.30 and 1.20 m above the ground, tilted 2.5–8° (each take's ground plane, checked by registering the takes to the first: they agree to 1 cm; the 1.41–1.91 m first logged here were wrong); the statue 2.6 m from the LiDAR, 2.5 m from the radar |
 | `17-55-35` | 148 s | handheld orbit of the Scotty statue |
 | `18-00-07` | 9.2 min | handheld walk back to the lab |
 
-Quality. The extrinsics hold: the radar's static cells land within 1–5 cm of LiDAR surfaces, the same as on 11/05. The mark is about 0.6 m closer to the statue than the 11/05 static takes (3.2 m from the LiDAR), so the two days are not one view. Between takes the rig moves a little: the statue shifts by up to 0.5 m sideways in the rig's frame, so the takes need registering before they can be stacked. The radar puts a seed on the statue in 5 of the 7 takes (none in `17-43-28` and `17-45-02`); its strongest near return is an object about 1.2 m beside the statue, at 3.4 m. Still not recorded: the same stack by day.
+Quality. The extrinsics hold: the radar's static cells land within 1–5 cm of LiDAR surfaces, the same as on 11/05. The mark is about 0.6 m closer to the statue than the 11/05 static takes (3.2 m from the LiDAR), so the two days are not one view. Between takes the rig turns by up to 7° and moves up to 0.3 m, so the takes need registering before they can be stacked (done in m7). The radar puts a seed on the statue in 5 of the 7 takes (none in `17-43-28` and `17-45-02`). The statue is in the radar's power in all seven; in those two the detector drops it, because an object 1.3 m tall, 3.4 m from the radar and about 20° to its right, raises the CFAR threshold. The object is in every take but the first. Still not recorded: the same stack by day.
 
-Used for: nothing yet. Planned: night dense depth and the height stack (proposal items 2 and 3), the night orbit reconstruction (item 4), bronze and stone by night (item 6). See [PROGRESS.md](PROGRESS.md).
+Used for: the night orbit (`experiments/night-orbit`, item 4); night dense depth, the height stack, bronze and stone (`experiments/m7-multi-height`, items 2, 3 and 6). See [PROGRESS.md](PROGRESS.md).
 
 ## 2026-11-05 · Session 4 · static scenes, Scotty plaza, a campus walk
 

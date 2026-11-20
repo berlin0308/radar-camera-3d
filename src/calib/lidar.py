@@ -26,6 +26,17 @@ class LidarTrace:
             f.seek(self.idx[k]); buf = f.read(self.idx[k + 1] - self.idx[k])
         return np.frombuffer(lzma.decompress(buf), "<u2").reshape(self.shape).astype(np.float32) / 1000
 
+    def channel(self, k, name="rfl"):
+        """One image channel of scan k (rfl: reflectivity, nir: ambient), same layout as range_image."""
+        idx = np.fromfile(os.path.join(self.dir, name + "_i"), dtype="<u8"); dt = {"rfl": "u1", "nir": "<u2"}[name]
+        with open(os.path.join(self.dir, name), "rb") as f:
+            f.seek(idx[k]); buf = f.read(idx[k + 1] - idx[k])
+        return np.frombuffer(lzma.decompress(buf), dt).reshape(self.shape)
+
+    def xyz_rfl(self, k, r_min=0.3):
+        """Points of scan k as in xyz, with the reflectivity of each."""
+        return self.xyz(k, r_min), self.channel(k, "rfl")[self.range_image(k) > r_min]
+
     def xyz(self, k, r_min=0.3):
         """(N, 3) points of scan k in the Ouster *lidar* frame (x, y in the spin plane, z up).
 
