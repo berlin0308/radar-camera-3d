@@ -198,7 +198,7 @@ over 4-neighbour pixel pairs, with σ = 0.05 and λ = 1. The two image-guided fi
 | 10/29 | 5 | campus, handheld: parking lot with an orbit of a parked car, a statue | §3, §4.1, §6.2, §6.5 |
 | 11/03 | 13 | eight calibration placements; statue orbit, lawn, corridors, a spin | §4.2, §6.1, §6.2, §6.5 |
 | 11/05 | 10 | static scenes on a stand (lab, outdoors, the statue), a campus walk, a night walk | §6.3, §6.4 |
-| [TODO] | | night session: the statue static scene at night | §6.4 |
+| 11/19 | 11 | after dark at the statue: static takes from one mark at six heights, two laps around it, two campus walks | §6.2 |
 
 [TODO: check trace counts against `SESSIONS.md`; 10/19 (two traces, no LiDAR) is left out.]
 
@@ -238,16 +238,17 @@ LiDAR to camera reprojects the board corners to 6.4 px, and 7.9 px when each pla
 
 **Accumulated points.** Table 2 scores the accumulated radar points against the LiDAR, accumulated with the same poses. On the parked-car orbit, the static-world test keeps 44 % of 23,999 detections, and 91 % of those lie within 0.5 m of a LiDAR surface. What it removes is the cloud inside the orbit: two-bounce ghosts of the car, sidelobes of its strong near echo, and the person walking alongside (Figure 13). The cost is coverage: the share of LiDAR cells near the path that have a radar point falls from 81 % to 69 %. The statue orbit gives the same picture, with 68 % kept and 92 % within 0.5 m. The pass rate follows walking speed. At 0.3 m/s around the statue the whole scene lies within a few Doppler bins of zero and little can fail the test; at 0.55 m/s around the car more does.
 
-*Table 2. Radar points accumulated over two handheld orbits, against the LiDAR built with the same poses.*
+*Table 2. Radar points accumulated over three handheld orbits, against the LiDAR built with the same poses.*
 
 | Orbit | Detections kept by the static test | Within 0.5 m of a LiDAR surface | LiDAR covered |
 |---|---|---|---|
 | Parked car, 10/29, 90 s | 44 % of 23,999 | 91 % | 69 % |
 | Statue, 11/03, 135 s | 68 % of 67,106 | 92 % | 71 % |
+| Statue at night, 11/19, 133 s | 75 % of 78,868 | 90 % | 72 % |
 
 The accumulated cloud is accurate but has the radar's limits: the car is still a ring of returns 14° wide around its LiDAR outline, and every point lies in one plane.
 
-[TODO: the night walk (`2026-11-05.19-11-08`) through the same chain. N4, not run yet.]
+**By night.** Nothing in this chain uses the camera: the poses come from the LiDAR and the static test from the radar's own Doppler. To check that, I ran the same chain, with the same settings, on a night orbit of the same statue (11/19, two laps, after dark; Figure 14). The odometry closes the two laps to 0.57 m over a 43 m path and turns 723° against the IMU's 731°. Against the LiDAR the night cloud scores as the day one did: 90 % of the kept points within 0.5 m of a LiDAR surface (92 % by day) and 72 % of the LiDAR cells covered (71 %). The top views show the same pedestal ring and the same curved wall, while the camera frame is nearly black. The one difference is the pass rate of the static test, 75 % against 68 %, and it follows the walking speed again: the night orbit was walked at 0.24 m/s on a 2.2 m radius, against 0.34 m/s on 2.6 m by day, so more of the scene lay within a Doppler bin of zero. At that speed the Doppler check of Figure 12 has little to test: only 15 frames move faster than 0.3 m/s, and on those the heading agrees to 7°.
 
 ![Figure 12](../figures/ego_check_scotty_1103.png)
 
@@ -256,6 +257,10 @@ The accumulated cloud is accurate but has the radar's limits: the car is still a
 ![Figure 13](../figures/accum_jeep.png)
 
 *Figure 13. **The Doppler test removes the ghosts inside the orbit.** A 90 s orbit of a parked car, top view in the world frame: (a) all CFAR points; (b) the points kept by the static-world test; (c) the LiDAR with the same poses, 0.3–2.5 m above the ground.*
+
+![Figure 14](../figures/day_night_scotty.png)
+
+*Figure 14. **The radar sees the statue the same way at night.** The statue orbit by day (11/03) and after dark (11/19). Top: a camera frame from each. Bottom: radar points kept by the static test, coloured by SNR, on the LiDAR (grey), with the walked path (blue); 14 m across, centred on the statue.*
 
 ### 6.3 Dense depth
 
@@ -313,9 +318,9 @@ This test is small: one object, two takes of the same scene, 89 and 134 outline 
 
 **Day and night.** [TODO: the same scene at night, same mark (N2). Prediction from this section: the radar seeds do not change, while the guide image loses most of its colour edges, so the distinct outline should behave like the similar one and the least-squares fill should fall towards the Gaussian. Not recorded yet.]
 
-![Figure 14](../experiments/_assets/placeholder.svg)
+![Figure 15](../experiments/_assets/placeholder.svg)
 
-*Figure 14. To make: the statue scene at night, same mark, through the same fills (N2).*
+*Figure 15. To make: the statue scene at night, same mark, through the same fills (N2).*
 
 ### 6.5 Comparison with a learned radar model
 
@@ -330,11 +335,11 @@ To place these results, I ran a released checkpoint of GRT \citep{Huang:GRT:2025
 | Parked car, 10/29 (240 frames) | p > 0.5 | 0.73 / 0.52 m | 1.40 m |
 | Statue orbit, 11/03 | p > 0.5 | 0.49 / 0.64 m | 1.40 m |
 
-The two approaches fail in opposite directions (Figure 15). The classical chain gives 10 to 20 sharp points per frame on the strongest reflectors, accurate but sparse. The learned model gives a full occupancy that follows walls and the car's outline coarsely and covers the whole field of view, but it smears along range and elevation, and at p > 0.5 its first return is biased near by 1–3 m. Raising the threshold to 0.9 trades coverage for accuracy: from 94 % to 57 % of LiDAR columns, and from 0.60 to 0.34 m. A sweep of a residual yaw finds no consistent offset in the model's output, to a sensitivity of about 3°.
+The two approaches fail in opposite directions (Figure 16). The classical chain gives 10 to 20 sharp points per frame on the strongest reflectors, accurate but sparse. The learned model gives a full occupancy that follows walls and the car's outline coarsely and covers the whole field of view, but it smears along range and elevation, and at p > 0.5 its first return is biased near by 1–3 m. Raising the threshold to 0.9 trades coverage for accuracy: from 94 % to 57 % of LiDAR columns, and from 0.60 to 0.34 m. A sweep of a residual yaw finds no consistent offset in the model's output, to a sensitivity of about 3°.
 
-![Figure 15](../figures/grt_vs_cfar_scotty_1103.png)
+![Figure 16](../figures/grt_vs_cfar_scotty_1103.png)
 
-*Figure 15. **Classical detection is sparse and sharp; the learned model is dense and smeared.** One instant of the statue orbit: the camera; the CFAR points on the LiDAR scan; the learned model's first-return cells on the same scan, with no calibration; the LiDAR label.*
+*Figure 16. **Classical detection is sparse and sharp; the learned model is dense and smeared.** One instant of the statue orbit: the camera; the CFAR points on the LiDAR scan; the learned model's first-return cells on the same scan, with no calibration; the LiDAR label.*
 
 ---
 
@@ -342,9 +347,9 @@ The two approaches fail in opposite directions (Figure 15). The classical chain 
 
 **Elevation is the binding limit.** Every radar point in this report is placed at the radar's height. This flattens the accumulated cloud into a plane and puts every dense-depth seed on one image row, which is why the vertical extent of the statue has to come entirely from the image. A radar with a vertical aperture, or a rig that tilts the radar between passes, would change this more than any filter.
 
-**Multipath.** Every range shot shows a second peak at twice the target's range, 12.5 dB below it for the nearest target and 22–24 dB for the rest (Figure 16). In a first dense-depth trial on an outdoor scene with a car, one seed was such an echo, at twice the wall's range. Indoors, CFAR points scatter outside the walls: the median distance to the LiDAR is 65 cm in a corridor, against 7 cm on the statue.
+**Multipath.** Every range shot shows a second peak at twice the target's range, 12.5 dB below it for the nearest target and 22–24 dB for the rest (Figure 17). In a first dense-depth trial on an outdoor scene with a car, one seed was such an echo, at twice the wall's range. Indoors, CFAR points scatter outside the walls: the median distance to the LiDAR is 65 cm in a corridor, against 7 cm on the statue.
 
-**Open scenes.** With few reflectors the radar covers little: 23 % of the LiDAR on an open lawn (Figure 17). The radar sees what reflects towards it, not what is there.
+**Open scenes.** With few reflectors the radar covers little: 23 % of the LiDAR on an open lawn (Figure 18). The radar sees what reflects towards it, not what is there.
 
 **Calibration** is tested only up to 3 m, and the radar's height is the rig's nominal value of about 0.17 m below the LiDAR, not a measurement. An earlier joint solve gave 0.27 ± 0.15 m, consistent within its error.
 
@@ -352,13 +357,13 @@ The two approaches fail in opposite directions (Figure 15). The classical chain 
 
 [TODO: night, once N2 and N4 are in.]
 
-![Figure 16](../notes/fig/rd2/f07_ghost.png)
+![Figure 17](../notes/fig/rd2/f07_ghost.png)
 
-*Figure 16. **Walls make a second copy of every target.** Range profiles rescaled by the target's distance; the second-bounce echo lines up at twice the range.*
+*Figure 17. **Walls make a second copy of every target.** Range profiles rescaled by the target's distance; the second-bounce echo lines up at twice the range.*
 
-![Figure 17](../figures/accum_lawn_1103.png)
+![Figure 18](../figures/accum_lawn_1103.png)
 
-*Figure 17. **An open lawn gives the radar little to see.** Few reflectors, and the radar covers 23 % of the LiDAR.*
+*Figure 18. **An open lawn gives the radar little to see.** Few reflectors, and the radar covers 23 % of the LiDAR.*
 
 ---
 

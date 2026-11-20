@@ -260,6 +260,16 @@ that switches between them.*
 
 ---
 
+### 8.1 The same orbit at night
+
+*[night-orbit](experiments/night-orbit/README.md) · done (11/20)*
+
+The day chain, unchanged, on two laps around the Scotty statue after dark (`2026-11-19.17-55-35`, 10–143 s). The odometry closes to 0.57 m over 43 m and turns 723° against the IMU's 731°. 75 % of 78,868 detections pass the static test and 90 % of them lie within 0.5 m of the LiDAR, against 68 % and 92 % on the 11/03 day orbit; coverage 72 % against 71 %. The higher pass rate follows the slower walk (0.24 against 0.34 m/s).
+
+![Day and night orbits of the statue](figures/day_night_scotty.png)
+
+---
+
 ## 9. Candidate extensions
 
 Each has a method and a pass criterion; one or two are picked after M3.
