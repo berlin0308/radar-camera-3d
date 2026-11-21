@@ -73,4 +73,4 @@ python -m src.fusion.stack --ref data/raw/2026-11-19.17-40-44 \
     --takes data/raw/2026-11-19.17-{40-44,43-28,45-02,46-37,48-40,51-19,53-30} \
     --object -2.65 0.08 0.9 --hide 1440 300 1530 620 --hide 995 335 1040 480 --out out/stack_1119.png
 ```
-`--hide` blurs two lit windows with people behind them in the shown frame only; the fills use the frame as recorded. Writes `stack_1119.png`, `stack_1119_materials.png` and `stack_1119.json`, copied to `figures/stack_scotty_1119.png`, `figures/materials_scotty_1119.png` and here as `stack_scotty_1119.json`.
+`--hide` blurs two lit windows with people behind them in the shown frame only; the fills use the frame as recorded. Writes `stack_1119.png`, `stack_1119_3d.png`, `stack_1119_materials.png` and `stack_1119.json`, copied to `figures/stack_scotty_1119.png`, `figures/stack3d_scotty_1119.png`, `figures/materials_scotty_1119.png` and here as `stack_scotty_1119.json`.

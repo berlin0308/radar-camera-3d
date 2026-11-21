@@ -55,37 +55,29 @@ At 3.6 m that beam is 0.9 m wide. The vertical baseline is one half-wavelength s
 
 *Figure 3. The radar sees a car as an arc. (a) Radar top view: the car 5.6 m away is an arc 1.4 m wide. (b) LiDAR: the same car is a line. (c) Camera.*
 
-![Figure 4](figures/stage2_range_walk_15-49-40_14356.png)
-
-*Figure 4. One radar range profile while walking. (a) Camera. (b) One chirp in grey, the mean over 64 chirps and 12 channels in black. The car is the peak at 5.6 m, a row of cars is at 13-19 m. Shaded zones are masked.*
-
 ## 3. Calibration
 
 The radar, LiDAR and camera are fixed on one rig. I place a flat board at eight spots and solve radar to LiDAR, then LiDAR to camera.
 
-The board is a mirror to the radar. Figure 5 shows why that matters. The LiDAR sees the whole board and its centre. The radar sees only the specular point, where the board faces it. When the board is turned, the two are far apart. Fitting the radar to the specular point instead of the centre cuts the azimuth error from 2.89° to 0.58°. It also fixes older angle shots that read 6-9° too wide: on those, the error drops from 4.05° to 0.75°.
+The board is a mirror to the radar. The LiDAR sees the whole board and its centre. The radar sees only the specular point, where the board faces it. When the board is turned, the two are far apart. Fitting the radar to the specular point instead of the centre cuts the azimuth error from 2.89° to 0.58°. It also fixes older angle shots that read 6-9° too wide: on those, the error drops from 4.05° to 0.75°.
 
-Figure 6 checks LiDAR to camera. The LiDAR's board points land on the board in the image. The corners are off by 6.4 px, against 52 px for the old solve.
+Figure 4 checks LiDAR to camera. The LiDAR's board points land on the board in the image. The corners are off by 6.4 px, against 52 px for the old solve.
 
-Figure 7 checks range. A board at four taped distances reads radar = 0.993 × tape + 0.183 m, within ±1.2 cm.
+Figure 5 checks range. A board at four taped distances reads radar = 0.993 × tape + 0.183 m, within ±1.2 cm.
 
-![Figure 5](figures/calib_specular_topview.png)
+![Figure 4](figures/calib_lidar_on_board.png)
 
-*Figure 5. A flat board returns from its specular point, not its centre. Top view in the radar frame: board planes from the LiDAR, their centres (orange), their specular points (blue) and the radar readings (×).*
+*Figure 4. LiDAR points on the board, projected into the camera, with the old solve (top) and this one (bottom). White crosses are the board's corners in the image.*
 
-![Figure 6](figures/calib_lidar_on_board.png)
+![Figure 5](notes/fig/m1_range.png)
 
-*Figure 6. LiDAR points on the board, projected into the camera, with the old solve (top) and this one (bottom). White crosses are the board's corners in the image.*
-
-![Figure 7](notes/fig/m1_range.png)
-
-*Figure 7. Range is linear to ±1.2 cm. A board at four taped distances.*
+*Figure 5. Range is linear to ±1.2 cm. A board at four taped distances.*
 
 ## 4. 3D reconstruction over a walk
 
 One radar frame has about a dozen points. To build a 3D model I stack frames over a handheld walk. The poses come from LiDAR odometry (KISS-ICP; Vizzo et al., 2023). A static point must have the Doppler that the rig's own motion predicts, so I keep only points that match. The rest are moving people, ghosts and sidelobes. Every kept point sits at the radar's height, since it has no elevation.
 
-Figure 8 shows this on a parked car. The test removes the cloud inside the orbit: two-bounce ghosts of the car, sidelobes, and the person walking alongside. Figure 9 shows the statue by day and at night. The radar's top view is the same while the camera frame is nearly black.
+Figure 6 shows this on a parked car. The test removes the cloud inside the orbit: two-bounce ghosts of the car, sidelobes, and the person walking alongside. Figure 7 shows the statue by day and at night. The radar's top view is the same while the camera frame is nearly black.
 
 *Table 1. Radar points stacked over three orbits, against the LiDAR with the same poses.*
 
@@ -95,13 +87,13 @@ Figure 8 shows this on a parked car. The test removes the cloud inside the orbit
 | Statue, day | 68 % of 67,106 | 92 % | 71 % |
 | Statue, night | 75 % of 78,868 | 90 % | 72 % |
 
-![Figure 8](figures/accum_jeep.png)
+![Figure 6](figures/accum_jeep.png)
 
-*Figure 8. The Doppler test removes the ghosts inside the orbit. A 90 s orbit of a parked car, top view. (a) All radar points. (b) Points kept. (c) LiDAR with the same poses.*
+*Figure 6. The Doppler test removes the ghosts inside the orbit. A 90 s orbit of a parked car, top view. (a) All radar points. (b) Points kept. (c) LiDAR with the same poses.*
 
-![Figure 9](figures/day_night_scotty.png)
+![Figure 7](figures/day_night_scotty.png)
 
-*Figure 9. The radar sees the statue the same way at night. Top: a camera frame by day and at night. Bottom: kept radar points on the LiDAR (grey), with the walked path (blue).*
+*Figure 7. The radar sees the statue the same way at night. Top: a camera frame by day and at night. Bottom: kept radar points on the LiDAR (grey), with the walked path (blue).*
 
 ## 5. Dense depth
 
@@ -130,27 +122,27 @@ The statue's outline splits in two. The bronze against pale frames is distinct i
 | Joint bilateral | 57-67 % | 44-46 % |
 | Least squares | **77-78 %** | 46 % |
 
-Where the outline shows in colour, least squares keeps the most. Where it does not, every fill does as badly as a constant. At night the image is dark except the windows, so the whole outline is the similar kind. Every fill then keeps 48-52 % and the colour-based fills act like the plain blur (Figure 10, top rows).
+Where the outline shows in colour, least squares keeps the most. Where it does not, every fill does as badly as a constant. At night the image is dark except the windows, so the whole outline is the similar kind. Every fill then keeps 48-52 % and the colour-based fills act like the plain blur (Figure 8, top row).
 
 ## 6. Several heights, and bronze against stone
 
-A radar seed sits at the radar's height. So I took seven takes from one spot at night, with the radar crossing the statue between 0.83 and 1.49 m above the ground, and put all the seeds into one image (Figure 10). The stone pedestal ends at 1.05 m, the bronze at 1.75 m.
+A radar seed sits at the radar's height. So I took seven takes from one spot at night, with the radar crossing the statue between 0.83 and 1.49 m above the ground, and put all the seeds into one image (Figure 8). The stone pedestal ends at 1.05 m, the bronze at 1.75 m.
 
-Stacking does not help. With all 66 seeds the error above the ground is 1.76-2.35 m, against 1.22-1.30 m for one take. Figure 11 explains why. From every height the radar's peak sits at the bronze's range, even when the radar is level with the stone. At 2.5 m the beam covers the whole statue, so a seed's height is the radar's height, not the height of what reflected.
+Stacking does not help. With all 66 seeds the error above the ground is 1.76-2.35 m, against 1.22-1.30 m for one take. Figure 9 explains why. From every height the radar's peak sits at the bronze's range, even when the radar is level with the stone. At 2.5 m the beam covers the whole statue, so a seed's height is the radar's height, not the height of what reflected.
 
-Figure 11 also shows the two materials. The radar sees the bronze. The stone shows only from the two lowest heights, 18 dB below the bronze. The LiDAR is the other way round: it sees the light stone (reflectivity 23) better than the dark bronze (4).
+Figure 9 also shows the two materials. The radar sees the bronze. The stone shows only from the two lowest heights, 18 dB below the bronze. The LiDAR is the other way round: it sees the light stone (reflectivity 23) better than the dark bronze (4).
 
-![Figure 10](figures/stack_scotty_1119.png)
+![Figure 8](figures/stack3d_scotty_1119.png)
 
-*Figure 10. Seeds from seven heights do not give the statue its height. Night. Rows: one take and all seven, as depth and as a statue close-up. Seeds are coloured by the radar's height at the statue. Two lit windows with people behind them are blurred.*
+*Figure 8. Seeds from seven heights do not give the statue its height. Night. Each fill in 3D in camera colours, seen from above and to the side. Top: one take. Bottom: all seven. Seeds are coloured by the radar's height at the statue. Two lit windows with people behind them are blurred. Error against the LiDAR under each panel.*
 
-![Figure 11](figures/materials_scotty_1119.png)
+![Figure 9](figures/materials_scotty_1119.png)
 
-*Figure 11. The radar sees the bronze from every height; the LiDAR sees the stone. Left: the statue's LiDAR points by part, with each take's radar height (dotted: no seed on the statue). Middle: radar power along the statue's direction, one line per take, with the ranges of the stone and the bronze. Right: LiDAR reflectivity by part.*
+*Figure 9. The radar sees the bronze from every height; the LiDAR sees the stone. Left: the statue's LiDAR points by part, with each take's radar height (dotted: no seed on the statue). Middle: radar power along the statue's direction, one line per take, with the ranges of the stone and the bronze. Right: LiDAR reflectivity by part.*
 
 ## 7. Classical against learned
 
-GRT (Huang et al., 2025) is a model trained on 29 hours of radar from the same kind of rig. It outputs a 3D occupancy grid. I ran the released model unchanged on my traces (Figure 12). The classical chain gives 10-20 sharp points per frame. GRT fills the whole view but smears along range and height.
+GRT (Huang et al., 2025) is a model trained on 29 hours of radar from the same kind of rig. It outputs a 3D occupancy grid. I ran the released model unchanged on my traces (Figure 10). The classical chain gives 10-20 sharp points per frame. GRT fills the whole view but smears along range and height.
 
 To score both the same way I look from above, on the same frames, against the same LiDAR.
 
@@ -163,33 +155,33 @@ To score both the same way I look from above, on the same frames, against the sa
 
 CFAR is more precise; GRT is more complete. Night does not change GRT, since it reads only the radar.
 
-Figure 13 uses the height stack on GRT. Unlike a CFAR seed, GRT does not put the statue at the radar's height: in the six takes with little tilt, its mean height on the statue stays at 0.84-1.14 m whatever the radar's height. But it smears the statue up to about 2.3 m, 0.5 m above its top.
+Figure 11 uses the height stack on GRT. Unlike a CFAR seed, GRT does not put the statue at the radar's height: in the six takes with little tilt, its mean height on the statue stays at 0.84-1.14 m whatever the radar's height. But it smears the statue up to about 2.3 m, 0.5 m above its top.
 
-![Figure 12](figures/grt_vs_cfar_scotty_1103.png)
+![Figure 10](figures/grt_vs_cfar_scotty_1103.png)
 
-*Figure 12. Classical points are sparse and sharp; the learned model is dense and smeared. One moment of the statue orbit: camera, CFAR points on the LiDAR, GRT's first occupied cells on the LiDAR, and the LiDAR label.*
+*Figure 10. Classical points are sparse and sharp; the learned model is dense and smeared. One moment of the statue orbit: camera, CFAR points on the LiDAR, GRT's first occupied cells on the LiDAR, and the LiDAR label.*
 
-![Figure 13](figures/grt_heights_scotty_1119.png)
+![Figure 11](figures/grt_heights_scotty_1119.png)
 
-*Figure 13. GRT does not follow the radar's height, but smears the statue upwards. Occupancy on the statue against height, one line per take, coloured by the radar's height (dotted). Left: GRT. Right: LiDAR label.*
+*Figure 11. GRT does not follow the radar's height, but smears the statue upwards. Occupancy on the statue against height, one line per take, coloured by the radar's height (dotted). Left: GRT. Right: LiDAR label.*
 
 ## 8. Limits
 
 Elevation is the main limit. Every radar point sits at the radar's height. That flattens the 3D cloud and puts every seed on one image row, so the statue's height has to come from the image alone. Moving the radar up and down does not fix it.
 
-Walls make a second copy of every target at twice its range (Figure 14). One early seed was such a ghost. Open scenes give the radar little to see: it covers 23 % of the LiDAR on a lawn (Figure 15).
+Walls make a second copy of every target at twice its range (Figure 12). One early seed was such a ghost. Open scenes give the radar little to see: it covers 23 % of the LiDAR on a lawn (Figure 13).
 
 The detector can drop real targets. In two of the seven height takes, a strong object 0.6 m behind the statue raised the CFAR threshold and removed the statue's seed.
 
 Dense depth was tested on one object, with filter settings chosen by eye. The day and night takes are from two spots, 3.3 m and 2.5 m from the statue.
 
-![Figure 14](notes/fig/rd2/f07_ghost.png)
+![Figure 12](notes/fig/rd2/f07_ghost.png)
 
-*Figure 14. Walls make a second copy of every target. Range profiles scaled by the target's distance; the second echo lines up at twice the range.*
+*Figure 12. Walls make a second copy of every target. Range profiles scaled by the target's distance; the second echo lines up at twice the range.*
 
-![Figure 15](figures/accum_lawn_1103.png)
+![Figure 13](figures/accum_lawn_1103.png)
 
-*Figure 15. An open lawn gives the radar little to see. It covers 23 % of the LiDAR.*
+*Figure 13. An open lawn gives the radar little to see. It covers 23 % of the LiDAR.*
 
 ## 9. Conclusion
 

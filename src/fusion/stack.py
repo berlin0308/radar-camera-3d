@@ -263,6 +263,34 @@ def plot_stack(out, small, ref, seeds1, seedsN, F1, FN, r1, rN, sil, cls, statue
     fig.savefig(out, dpi=150); print("saved", out)
 
 
+def plot_stack3d(out, trace, small, seeds1, seedsN, F1, FN, r1, rN, yaw=15.0, pitch=25.0):
+    """Like the top row of the dense-depth figure: each fill in 3D in camera colours, seen from above and to the side.
+    Rows: one height / all heights. Columns: the camera with its seeds, then one per fill."""
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
+    from .view3d import intrinsics, rays, render
+    H, W = small.shape[:2]; names = SHOWN; nc = len(names) + 1
+    gain = float(np.clip(0.85 / max(np.percentile(small, 95), 1e-3), 1.0, 4.0)); show = np.clip(small * gain, 0, 1)
+    R = rays(intrinsics(trace), H, W); hmap, hlo, hhi = _cmap_h(seedsN["h"])
+    fig, ax = plt.subplots(2, nc, figsize=(2.75 * nc + 0.6, 2 * 2.75 * 270 / 480 + 1.3), constrained_layout=True)
+    lab = dict(fontsize=8.5, labelpad=3)
+    for i, (S, F, r) in enumerate([(seeds1, F1, r1), (seedsN, FN, rN)]):
+        a = ax[i, 0]; a.imshow(show, aspect="auto")
+        sc = a.scatter(S["uv"][:, 0], S["uv"][:, 1], s=22, c=S["h"], cmap=hmap, vmin=hlo, vmax=hhi, edgecolors="white", linewidths=.6)
+        a.set_xlabel(f"{len(S['d'])} radar seeds", **lab)
+        for j, n in enumerate(names, start=1):
+            a = ax[i, j]; a.imshow(render(R, F[n], show, yaw=yaw, pitch=pitch), aspect="auto")
+            a.set_xlabel(f"MAE: {r[n]['above_ground']['mae']:.2f} m", **lab)
+            if i == 0:
+                a.set_title(n, fontsize=10, fontweight="bold")
+    ax[0, 0].set_title("camera and radar seeds", fontsize=10, fontweight="bold")
+    ax[0, 0].set_ylabel("one height", fontsize=10, fontweight="bold")
+    ax[1, 0].set_ylabel(f"{len(set(seedsN['take'].tolist()))} heights", fontsize=10, fontweight="bold")
+    for a in ax.ravel():
+        a.set_xticks([]); a.set_yticks([])
+    fig.colorbar(sc, ax=ax[:, -1], location="right", shrink=.9, aspect=20, label="radar height at the statue (m)")
+    fig.savefig(out, dpi=150); print("saved", out)
+
+
 def plot_materials(out, statue, part, rfl, plane, per, rng, centre):
     """Side view of the object by part with each take's beam height; radar power along range; LiDAR reflectivity by part."""
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -375,6 +403,7 @@ def main():
         for x0, y0, x1, y1 in a.hide:
             sl = np.s_[int(y0 * a.scale):int(np.ceil(y1 * a.scale)), int(x0 * a.scale):int(np.ceil(x1 * a.scale))]; shown[sl] = blur[sl]
     plot_stack(a.out, shown, ref, one, S, F1, FN, r1, rN, sil, cls, None, a.vmin, a.vmax)
+    plot_stack3d(base + "_3d.png", ref_tr, shown, one, S, F1, FN, r1, rN)
     plot_materials(base + "_materials.png", statue, part, rfl, plane, {k: v for k, v in per.items()}, rng, centre)
 
 
