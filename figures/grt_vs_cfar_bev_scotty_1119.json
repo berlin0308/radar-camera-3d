@@ -1,0 +1,35 @@
+{
+ "cfar": {
+  "frames": 300,
+  "to_label_m": 0.12774438932825133,
+  "label_to_m": 1.4858210165862185,
+  "points": 18.0,
+  "label_points": 3441.5
+ },
+ "grt_0.5": {
+  "frames": 300,
+  "to_label_m": 0.3151722163741702,
+  "label_to_m": 0.2383487313142778,
+  "points": 4419.5,
+  "label_points": 3441.5
+ },
+ "grt_0.9": {
+  "frames": 300,
+  "to_label_m": 0.11049284652472005,
+  "label_to_m": 0.11638710109424685,
+  "points": 2473.0,
+  "label_points": 3441.5
+ },
+ "params": {
+  "dump": "/data/berlin/grt/2026-11-19.17-55-35",
+  "trace": "2026-11-19.17-55-35",
+  "stride": 5,
+  "rows": [
+   4,
+   44
+  ],
+  "z_min": -1.0,
+  "snr_min": 12.0,
+  "reach": 15.0
+ }
+}

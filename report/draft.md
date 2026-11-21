@@ -350,8 +350,25 @@ To place these results, I ran a released checkpoint of GRT \citep{Huang:GRT:2025
 | Statue, 10/29 | p > 0.9 | 0.34 / 0.64 m | 0.70 m |
 | Parked car, 10/29 (240 frames) | p > 0.5 | 0.73 / 0.52 m | 1.40 m |
 | Statue orbit, 11/03 | p > 0.5 | 0.49 / 0.64 m | 1.40 m |
+| Statue orbit, 11/03 | p > 0.9 | 0.35 / 0.67 m | 0.70 m |
+| Statue orbit at night, 11/19 | p > 0.5 | 0.61 / 0.76 m | 2.10 m |
+| Statue orbit at night, 11/19 | p > 0.9 | 0.35 / 0.67 m | 0.70 m |
 
 The two approaches fail in opposite directions (Figure 17). The classical chain gives 10 to 20 sharp points per frame on the strongest reflectors, accurate but sparse. The learned model gives a full occupancy that follows walls and the car's outline coarsely and covers the whole field of view, but it smears along range and elevation, and at p > 0.5 its first return is biased near by 1–3 m. Raising the threshold to 0.9 trades coverage for accuracy: from 94 % to 57 % of LiDAR columns, and from 0.60 to 0.34 m. A sweep of a residual yaw finds no consistent offset in the model's output, to a sensitivity of about 3°.
+
+**By night** the model behaves as by day. At p > 0.9 the night orbit scores the same as the day one, to the centimetre (Table 5). At p > 0.5 it is worse by 0.12 m in Chamfer, which follows the scene, not the light: the night orbit passes 0.4 m closer to the statue, and the near bias puts more first returns in front of it.
+
+**Scored the same way.** The depth-map score cannot be applied to CFAR, whose points have no usable elevation. I therefore reduce both methods to what both give, points in the horizontal plane, on the same frames and against the same LiDAR label. I also accumulate GRT's first returns over the orbit with the same poses as the CFAR points and score them as in Table 2 (Table 6). Per frame, GRT at p > 0.9 is as accurate as CFAR and sees nearly every surface, while CFAR's 15–18 points per frame leave the label 1.5 m from the nearest one. Over the orbit, CFAR is the more precise and GRT the more complete. The top view hides GRT's smear in elevation, which is where most of its 3D error lies.
+
+*Table 6. CFAR and GRT on the same frames, against the same LiDAR, from above. Per frame: median distance from the method's points to the label, and from the label to the method's points. Accumulated: as in Table 2.*
+
+| Method | Day, per frame | Day, accumulated: within 0.5 m / coverage | Night, per frame | Night, accumulated: within 0.5 m / coverage |
+|---|---|---|---|---|
+| CFAR | 0.12 / 1.54 m (15 points) | 92 % / 71 % | 0.13 / 1.49 m (18 points) | 90 % / 72 % |
+| GRT, p > 0.5 | 0.26 / 0.16 m | 80 % / 81 % | 0.32 / 0.24 m | 67 % / 77 % |
+| GRT, p > 0.9 | 0.09 / 0.14 m | 81 % / 82 % | 0.11 / 0.12 m | 71 % / 84 % |
+
+**Heights.** GRT outputs elevation, so the height stack of Section 6.5 tests whether it puts the statue where the statue is or where the radar is. In the six takes tilted by at most 5.3°, the mean height of GRT's occupancy on the statue is 0.84–1.14 m and does not change with the radar's height (slope 0.01 over 0.83–1.28 m). A CFAR seed follows the radar's height exactly. The LiDAR label's mean is 0.65–0.70 m: GRT smears the statue upwards to about 2.3 m, 0.5 m above its top. In the take tilted by 8°, GRT's occupancy moves up with the tilt. The model was trained on a level rig.
 
 ![Figure 17](../figures/grt_vs_cfar_scotty_1103.png)
 
@@ -361,7 +378,7 @@ The two approaches fail in opposite directions (Figure 17). The classical chain 
 
 ## 7. Discussion and limitations
 
-**Elevation is the binding limit.** Every radar point in this report is placed at the radar's height. This flattens the accumulated cloud into a plane and puts every dense-depth seed on one image row, which is why the vertical extent of the statue has to come entirely from the image. Moving the radar does not change this. From seven heights at one mark the radar's range profile on the statue is the same, because its elevation beam covers the whole statue from each of them (Section 6.5). A vertical aperture would change it more than any filter.
+**Elevation is the binding limit.** Every CFAR point in this report is placed at the radar's height. This flattens the accumulated cloud into a plane and puts every dense-depth seed on one image row, which is why the vertical extent of the statue has to come entirely from the image. Moving the radar does not change this. From seven heights at one mark the radar's range profile on the statue is the same, because its elevation beam covers the whole statue from each of them (Section 6.5). The learned model does not tie the statue to the radar's height, but it smears it 0.5 m upwards (Section 6.6). A vertical aperture would change this more than any filter.
 
 **Multipath.** Every range shot shows a second peak at twice the target's range, 12.5 dB below it for the nearest target and 22–24 dB for the rest (Figure 18). In a first dense-depth trial on an outdoor scene with a car, one seed was such an echo, at twice the wall's range. Indoors, CFAR points scatter outside the walls: the median distance to the LiDAR is 65 cm in a corridor, against 7 cm on the statue.
 

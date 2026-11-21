@@ -177,8 +177,53 @@ export PYTHONPATH=~/nrdk/grt CUDA_VISIBLE_DEVICES=0 JAXTYPING_DISABLE=1
 ~/nrdk-venv/bin/python -m src.grt.infer /data/berlin/iq1m-checkpoints/base/small data/raw/2026-10-29.16-22-36 --out /data/berlin/grt --start 160 --seconds 70
 .venv/bin/python -m src.grt.align /data/berlin/grt/2026-10-29.16-22-36 --trace data/raw/2026-10-29.16-22-36 --out figures/grt_align_scotty.png
 .venv/bin/python -m src.grt.compare_frame /data/berlin/grt/2026-10-29.16-22-36 --trace data/raw/2026-10-29.16-22-36 --time 200 --out figures/grt_vs_cfar_scotty.png
+
+# 11/20: the night orbit (same window as src.recon.accumulate: radar time 10-143 s) and the height stack (3-39 s camera time)
+~/nrdk-venv/bin/python -m src.grt.infer /data/berlin/iq1m-checkpoints/base/small data/raw/2026-11-19.17-55-35 --out /data/berlin/grt --start 10 --seconds 133
+.venv/bin/python -m src.grt.align /data/berlin/grt/2026-11-19.17-55-35 --trace data/raw/2026-11-19.17-55-35 --out figures/grt_align_scotty_1119.png
+.venv/bin/python -m src.grt.compare_frame /data/berlin/grt/2026-11-19.17-55-35 --trace data/raw/2026-11-19.17-55-35 --time 70 --out figures/grt_vs_cfar_scotty_1119.png
+# CFAR and GRT scored the same way: per frame from above, and accumulated with the KISS-ICP poses (day: 2026-11-03.17-01-12)
+.venv/bin/python -m src.grt.vs_cfar /data/berlin/grt/2026-11-19.17-55-35 --trace data/raw/2026-11-19.17-55-35 --out figures/grt_vs_cfar_bev_scotty_1119.json
+.venv/bin/python -m src.grt.accumulate /data/berlin/grt/2026-11-19.17-55-35 --trace data/raw/2026-11-19.17-55-35 --out figures/grt_accum_scotty_1119.json
+# height stack: infer each take with --start (3 s minus the take's radar-camera offset) --seconds 36, then
+.venv/bin/python -m src.grt.heights --ref data/raw/2026-11-19.17-40-44 --takes data/raw/2026-11-19.17-{40-44,43-28,45-02,46-37,48-40,51-19,53-30} \
+    --object -2.65 0.08 --out figures/grt_heights_scotty_1119.png
 ```
 
 Sources read locally: `wiselabcmu/grt` @4a04614 (`deepradar/transforms/lidar.py`, `deepradar/objectives/occupancy3.py`, `deepradar/utils.py`, `config/obj/map.yaml`, `config/grt/grt.yaml`, `demo/`), `RadarML/nrdk` @d606113 (`grt/config/**`, `grt/evaluate.py`, `docs/grt/*.md`, `src/nrdk/roverd/lidar.py`, `src/nrdk/metrics/pointcloud.py`), `RadarML/red-rover` @6687094 (`docs/iq1m/*.md`, `docs/roverc/tips.md`, `collect/config/grt-o.yaml`, `processing/catkin_ws/src/slam/red-rover.urdf`, `processing/src/roverp/_cli/sensorpose.py`, `format/src/roverd/transforms/ouster.py`), and the capstone plan page (Notion, entries of 9/23–10/17).
 
 Sources from the literature pass (primary, fetched 2026-10-31): [GRT paper, arXiv 2509.12482](https://arxiv.org/abs/2509.12482) and its [HTML](https://arxiv.org/html/2509.12482v1); [NRDK GRT reference](https://radarml.github.io/nrdk/grt); [I/Q-1M page](https://radarml.github.io/red-rover/iq1m/); [roverp CLI docs](https://radarml.github.io/red-rover/roverp/cli/); [nrdk `roverd/lidar.py`](https://github.com/RadarML/nrdk/blob/main/src/nrdk/roverd/lidar.py); [red-rover URDF](https://github.com/RadarML/red-rover/blob/main/processing/catkin_ws/src/slam/red-rover.urdf); [red-rover `iq1m/calibrate.py`](https://github.com/RadarML/red-rover/blob/main/iq1m/calibrate.py); [RadarHD, arXiv 2206.09273](https://arxiv.org/html/2206.09273) and [code](https://github.com/akarsh-prabhakara/RadarHD).
+
+## 12. Night orbit, the same score for both, and the height stack (2026-11-20)
+
+**Night orbit.** The same checkpoint, unchanged, on the 11/19 night orbit of the statue (`17-55-35`, radar time 10–143 s, 2,660 frames in 25 s on one 4090). Scored by `align` as on 11/03, every 5th frame, 300 frames:
+
+| Orbit | Threshold | Chamfer GRT→LiDAR / LiDAR→GRT | Depth error, median | GRT covers label columns | Residual yaw |
+|---|---|---|---|---|---|
+| Day, 11/03 | p > 0.5 | 0.49 / 0.64 m | 1.40 m | 89 % | 0° |
+| Night, 11/19 | p > 0.5 | 0.61 / 0.76 m | 2.10 m | 91 % | 0° |
+| Day, 11/03 | p > 0.9 | 0.35 / 0.67 m | 0.70 m | 57 % | |
+| Night, 11/19 | p > 0.9 | 0.35 / 0.67 m | 0.70 m | 55 % | |
+
+GRT reads only the radar, so the light cannot matter. At p > 0.9 day and night are the same to the centimetre. At p > 0.5 the night orbit is worse, which follows the scene: the night orbit runs 0.4 m closer to the statue, and GRT's near bias puts more first returns in front of it.
+
+**CFAR and GRT scored the same way.** `align` cannot score CFAR, whose points have no usable elevation. `vs_cfar` reduces both to what both give, points in the LiDAR's horizontal plane, on the same frames and against the same label (first return per column, above z = −1 m, within 15 m). `accumulate` puts GRT's first returns in the 0.3–2.5 m layer into the world with the KISS-ICP poses and scores them exactly as `src.recon.accumulate` scores the CFAR points.
+
+| | Per frame: to label / label to it | Points per frame | Accumulated: within 0.5 m of the LiDAR layer | Coverage of 0.5 m cells |
+|---|---|---|---|---|
+| CFAR, day | 0.12 / 1.54 m | 15 | 92 % (static-filtered) | 71 % |
+| GRT p > 0.5, day | 0.26 / 0.16 m | 4,230 | 80 % | 81 % |
+| GRT p > 0.9, day | 0.09 / 0.14 m | 2,385 | 81 % | 82 % |
+| CFAR, night | 0.13 / 1.49 m | 18 | 90 % (static-filtered) | 72 % |
+| GRT p > 0.5, night | 0.32 / 0.24 m | 4,420 | 67 % | 77 % |
+| GRT p > 0.9, night | 0.11 / 0.12 m | 2,473 | 71 % | 84 % |
+
+From above and per frame, GRT at p > 0.9 is as accurate as CFAR and sees nearly every surface, while CFAR's 15–18 points leave the label 1.5 m from the nearest one. Accumulated over the orbit, CFAR is the more precise (90–92 % within 0.5 m against 67–81 %) and GRT the more complete (77–84 % against 71–72 %). The top view hides GRT's elevation smear, which is where its 3D error is.
+
+**Height stack.** GRT on the seven static takes of the 11/19 stack (3–39 s each), averaged over each take, in the cells within 0.6 m of the statue's axis (`heights`). nrdk's LiDAR label on the same cells has its mean height at 0.65–0.70 m in every take. GRT's is 0.84–1.14 m in the six takes tilted 2.5–5.3° and does not change with the radar's height across 0.83–1.28 m (slope 0.01, r = 0.02). A CFAR seed, by construction, follows it with slope 1. GRT smears the statue upwards: its occupancy is above 0.3 up to 2.3 m, 0.5 m over the statue's top. In the take tilted 8°, GRT's occupancy moves up with the tilt (mean 1.33 m, nothing below 0.46 m). The model was trained on a level rig.
+
+![GRT on the statue from seven heights](figures/grt_heights_scotty_1119.png)
+
+![Night orbit, GRT against the LiDAR label](figures/grt_align_scotty_1119.png)
+
+![Night orbit, one instant](figures/grt_vs_cfar_scotty_1119.png)

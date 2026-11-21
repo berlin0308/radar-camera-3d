@@ -37,6 +37,7 @@ The same commands and settings as the day orbit (`notes/sessions/2026-11-03.md`)
 The night orbit scores as the day one: 90 % against 92 % within 0.5 m, 72 % against 71 % coverage, the same pedestal ring and curved wall in the top view while the photograph is nearly black. The higher pass rate at night (75 % against 68 %) follows the slower walk: at 0.24 m/s most of the scene lies within one Doppler bin (5.6 cm/s) of zero, so the static test removes less, and the Doppler check has only 15 moving frames to test. The radar's ridge fit reads lower than the odometry at this speed (0.11–0.17 against 0.21–0.24 m/s in the two frames shown).
 
 ## Open items
+- Done 11/20: GRT on this orbit, scored as on 11/03 and the same way as CFAR, in `GRT.md` §12.
 - The two orbits differ in radius and speed; a strict day/night pair would need the same path.
 - CFAR against GRT on this orbit (proposal item 5).
 
