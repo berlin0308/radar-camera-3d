@@ -1,463 +1,220 @@
 # Time-of-Flight at 4 mm: A 3D Camera from a Single-Chip Radar and a Fisheye Camera
 
-**Po-Lin Chen** · 15-663 Computational Photography, final project · Carnegie Mellon University, Fall 2026
+Po-Lin Chen · 15-663 Computational Photography, final project · Carnegie Mellon University, Fall 2026
 
-*The final write-up, in Markdown. [report/draft.md](report/draft.md) is the working draft behind it and `report.tex` (Overleaf "CP Final") the PDF. Every number and figure here comes from code in `src/radar/`, `src/calib/`, `src/recon/`, `src/fusion/`, `src/eval/` and `src/grt/`; each experiment's folder under [experiments/](experiments/) has the commands that reproduce it.*
-
----
+*Every number and figure comes from code in this repo. Each folder under [experiments/](experiments/) has the commands to reproduce it. The longer draft is [report/draft.md](report/draft.md).*
 
 ## Abstract
 
-A single-chip 77 GHz FMCW radar measures metric range in any light, but its eight-element array resolves angle only to about 14° and gives no usable elevation. This report asks how much of a 3D camera such a radar can be once a fisheye camera is placed next to it. I treat the radar as a continuous-wave time-of-flight sensor at a 4 mm wavelength and build its imaging chain from raw ADC samples to 3D points. I then calibrate it to the camera by modelling a flat target as the mirror it is at this wavelength, accumulate its points over a handheld walk with a Doppler test that keeps only the static world, and fill the sparse radar depth into a dense depth map with image-guided filters. Against a 128-beam LiDAR, ranges are linear to ±1.2 cm, the calibration holds azimuth to 0.58°, and 90–92 % of accumulated radar points lie within 0.5 m of a LiDAR surface, by day and by night. Dense depth shows the limits of the pairing. The radar puts the right depth on a statue, but no image-guided fill also recovers the statue's outline. Where the outline differs from the background in colour, an edge-aware fill keeps 77 % of it. Where the statue and the background are the same stone, every fill fails, and joint bilateral upsampling moves the statue to the wall behind it. Stacking takes from seven heights adds no vertical information, because the radar's elevation beam covers the whole statue from each. A released learned model (GRT) run on the same traces is the opposite of the classical chain: complete where CFAR is sparse, smeared where CFAR is sharp.
-
----
+A single-chip 77 GHz radar measures range in any light. Its angle is poor: a 14° beam and no usable elevation. I put a fisheye camera next to it and ask how much of a 3D camera the pair can be. I build the radar chain from raw samples, calibrate it to the camera and a LiDAR, stack its points over a handheld walk, and fill its sparse depth into a dense depth map with the camera image. Against the LiDAR, range is right to ±1.2 cm, azimuth to 0.58°, and 90-92 % of the stacked radar points lie within 0.5 m of a LiDAR surface, by day and by night. Dense depth shows the limit. The radar puts the right depth on a statue, but the image cannot give the statue its outline unless the outline shows in colour. Seven radar heights do not help, because the radar's beam covers the whole statue from each one. A learned radar model (GRT) is the opposite of the classical chain: complete where it is sparse, smeared where it is sharp.
 
 ## 1. Introduction
 
-A camera records shape and texture but not metric depth, and in the dark it records little at all. Time-of-flight sensors measure depth directly, but optical ones fail in strong sunlight, smoke and fog, and LiDARs are bulky and expensive. A single-chip millimetre-wave radar is a third option. Transmitters, receivers and signal processing fit on one chip; it measures range to centimetres regardless of light, and it also measures radial velocity. These properties have made it common in cars and robots (Prabhakara et al., 2023; Huang et al., 2025).
+A camera sees shape but not depth. A radar sees depth but not shape. The radar's aperture is a few wavelengths wide, so a point spreads over a 14° beam, and its array is almost flat, so it has no elevation. Figure 3 shows the result on a parked car: the radar sees an arc 1.4 m wide where the LiDAR sees a line.
 
-The radar's weakness is angle. Its aperture is a few wavelengths wide, so a point target spreads over a beam about 14° across, two orders of magnitude coarser than a LiDAR. Its array has almost no vertical extent, so elevation is essentially unknown. Figure 3 shows the result: the radar sees a parked car 5.6 m away as an arc 1.4 m wide, where the LiDAR sees a line. A radar alone gives a 3D output that is sparse, blurred in angle and flat.
+The idea is to let the radar give depth at a few points and let the image decide where that depth spreads, as in joint bilateral upsampling (Kopf et al., 2007). The question is whether this still works when the depth samples are a handful of points on one image row, each smeared over 14°.
 
-The camera has the opposite profile. It resolves angle to a fraction of a degree but has no metric depth. This suggests a division of labour that this course has seen before: let the sensor with good range supply depth at a few points, and let the image decide where that depth should spread. Joint bilateral upsampling (Kopf et al., 2007) does exactly this for a low-resolution depth map and a high-resolution photograph. The question is whether the same idea survives a depth sensor whose samples are not a low-resolution image but a handful of points on a single row, each smeared over 14°, some of them ghosts.
+I built the system on a handheld rig from the CMU WiSE Lab, with a LiDAR as ground truth. The main findings:
 
-To answer it, I built a radar–camera 3D camera from first principles on a handheld rig borrowed from the CMU WiSE Lab, with a LiDAR as ground truth. Building it raised three problems that a camera pipeline does not have. First, *the radar's raw output is not an image*: it is a stream of complex samples that must become range, velocity and angle, and each step has its own artifacts (mirrored range axes, a velocity-dependent phase error between transmitters, sidelobes that CFAR detection picks up as targets). Second, *at 4 mm most surfaces are mirrors*, so the obvious calibration target, a flat board, does not return from where the camera and LiDAR see it. Third, *radar returns come from the strongest reflectors, not from the visible surface*, so a radar point can be correct in range and still belong to an object that the camera cannot see at that pixel.
-
-**Contributions.**
-
-- A radar imaging chain from raw ADC samples to 3D points, checked stage by stage against the rig's own signal-processing library to better than 10⁻⁷ relative error, and against a tape measure to ±1.2 cm in range (Sections 4.1, 6.1).
-- A radar–LiDAR–camera calibration that treats a flat board as a mirror. Aiming at the board's specular point instead of its centre reduces the azimuth residual from 2.89° to 0.58°, and explains why earlier angle shots read 6–9° too wide (Sections 4.2, 6.1).
-- Accumulation of radar points over a handheld walk, with a Doppler test that keeps only the static world. The radar's own Doppler agrees with the LiDAR odometry to 0.15 m/s, and 90–92 % of the kept points lie within 0.5 m of a LiDAR surface, by day and after dark (Sections 4.3, 6.2).
-- A study of camera-guided dense depth from radar seeds, scored on the object, around it and on its outline, separating outlines visible in colour from outlines that are not (Sections 4.4, 6.3, 6.4), and repeated at night from seven radar heights, with the statue's bronze figure and stone pedestal told apart (Section 6.5).
-- CFAR and a released learned model, GRT, scored on the same frames in the same way (Section 6.6).
-
-**Key findings.**
-
-- **The radar has the depth; the camera does not have the shape.** On a statue 3.3 m away, the radar seed on the statue is 0.26 m from the LiDAR, but every image-guided fill moves part of the statue towards the wall behind it.
-- **A sharp-looking depth map is not a correct one.** Joint bilateral upsampling gives the depth map that looks most like the scene and the largest error on the statue (3.72 m). Its sharpness is texture copied from the photograph.
-- **Edges help only where they exist.** An edge-aware least-squares fill keeps 77–78 % of the statue's outline where it differs from the background in colour, and no fill does better than a constant depth where it does not, which at night is the whole outline.
-- **More heights are not more elevation.** From seven heights the radar sees the statue's bronze at the same range, so the extra seeds sit at the wrong height.
+- The radar has the depth; the camera does not have the shape. The radar point on a statue 3.3 m away is 0.26 m from the LiDAR, but every image-guided fill moves part of the statue onto the wall behind it.
+- A sharp depth map is not a correct one. Joint bilateral upsampling looks most like the scene and has the largest error on the statue (3.72 m).
+- Edges help only where they exist. An edge-aware fill keeps 77-78 % of the statue's outline where it differs in colour from the background, and no more than a constant depth where it does not. At night that is the whole outline.
+- More heights are not more elevation. From seven heights the radar sees the statue's bronze at the same range.
 
 ![Figure 1](figures/dense_scotty_1105.png)
 
-*Figure 1. **Nine radar points and one photograph do not give a statue its shape.** Input and LiDAR reference, then four fills. Rows: 3D view, depth (near is white), statue close-up; outline orange where it stands out in colour, blue where it does not. MAE against the LiDAR under each panel.*
+*Figure 1. Nine radar points and one photograph, and four ways to fill them. Rows: 3D view, depth (near is white), statue close-up. The outline is orange where it stands out in colour and blue where it does not. Error against the LiDAR under each panel.*
 
 ```mermaid
 flowchart LR
-    A["Raw ADC<br/>64 chirps × 3 TX × 4 RX"] --> B["Range FFT<br/>Doppler FFT"]
-    B --> C["TDM correction<br/>angle FFT"]
-    C --> D["CFAR<br/>azimuth peaks"]
-    D --> E["3D points<br/>radar frame"]
-    E --> F["Calibration<br/>specular-point solve"]
-    F --> G["Static-world test<br/>Doppler vs odometry"]
-    G --> H["Accumulated cloud<br/>world frame"]
-    F --> I["Persistent seeds<br/>in the image"]
-    I --> J["Image-guided fill<br/>dense depth"]
-    H --> K["Score against LiDAR"]
-    J --> K
+    A["Raw radar samples"] --> B["Range, Doppler, angle"]
+    B --> C["Detected points"]
+    C --> D["Calibration to LiDAR and camera"]
+    D --> E["Static points over a walk"]
+    D --> F["Seeds in one camera frame"]
+    F --> G["Image-guided fill"]
+    E --> H["Score against LiDAR"]
+    G --> H
 ```
 
-*Figure 2. **The pipeline.** Raw samples become 3D points (4.1); a calibration places them in the LiDAR's and the camera's frames (4.2). Over a walk, the points that pass a static-world test are accumulated (4.3). For one camera frame, they become seeds that an image-guided filter spreads into a dense depth map (4.4). Both outputs are scored against the LiDAR.*
+*Figure 2. The pipeline. Radar points go through the calibration. Over a walk, the static ones are stacked into a 3D cloud. In one camera frame, they become seeds for a dense depth map. Both are scored against the LiDAR.*
 
----
+## 2. Background
 
-## 2. Related work
+An FMCW radar sends a chirp that sweeps a bandwidth *B*. The echo comes back late, and mixing it with the chirp gives a tone whose frequency is set by range. So range is a frequency, read out with an FFT, much like continuous-wave time-of-flight in optics. Two targets split when they are one bin apart:
 
-**Radar as an imaging sensor.** The range and angle limits of FMCW radar follow from its bandwidth and aperture (Rao, 2018). The classical way to sharpen angle is synthetic aperture: move the radar along a known path and combine the frames coherently, which needs millimetre-accurate motion (Guan et al., 2020). The rig here is handheld and its poses come from LiDAR odometry with about 0.1 m jitter, far coarser than the wavelength, so I accumulate detected points rather than coherent samples.
+> Δ*r* = *c* / 2*B* = 8.74 cm for *B* = 1.716 GHz.
 
-**Learned radar super-resolution.** RadarHD (Prabhakara et al., 2023) trains a U-Net to turn a single-chip radar's range–azimuth heatmap into a LiDAR-like 2D point cloud and improves on CFAR detection by 3.5×. GRT (Huang et al., 2025) scales this to a transformer trained on 29 hours of raw radar data from the same kind of rig as mine and predicts 3D occupancy. Both learn from LiDAR what the radar alone cannot resolve. This report takes the opposite route and asks what classical processing and a camera can recover without training; Section 6.6 runs a released GRT checkpoint on my traces as a reference point.
+Angle comes from phase across the antennas. Three transmitters and four receivers give a virtual row of eight (Rao, 2018). An array of *N* elements has a beam about
 
-**Radar–camera depth.** Learned methods associate radar points with image pixels to densify depth for driving scenes (Long et al., 2021), and radar–camera fusion has been used for long-range depth imaging on the same radar family (Prabhakara et al., 2022). These methods learn the association from data. Here the association is a fixed, hand-designed filter, which makes its failure modes visible.
+> Δθ ≈ 2 / *N* rad, so 14° for *N* = 8.
 
-**Image-guided upsampling.** Joint bilateral upsampling (Kopf et al., 2007) filters a low-resolution signal with weights from a high-resolution guide image. Edge-aware weighted least squares spreads sparse values over an image while respecting its edges (Levin et al., 2004). Both assume that pixels similar in colour are similar in depth. Section 6.4 measures where that assumption fails.
-
-**Ego-motion from Doppler.** A radar moving through a static scene sees each target's radial velocity determined by its own velocity and the target's azimuth, which has been used to estimate ego-motion from a single frame (Kellner et al., 2013). I use the same relation in the other direction: given the motion from LiDAR odometry, it decides which radar points belong to the static world.
-
----
-
-## 3. Background: FMCW radar as a time-of-flight camera
-
-This section derives the three limits that shape everything after it: range resolution, angular resolution, and the absence of elevation. Each is a prediction that Section 6 tests.
-
-### 3.1 Range from a beat frequency
-
-An FMCW radar transmits a chirp whose frequency rises linearly with slope *S* over a bandwidth *B*. The echo from a target at range *r* returns after a delay τ = 2*r*/*c*. Mixing the echo with the chirp still being transmitted gives a beat tone at
-
-> *f*<sub>b</sub> = *S* τ = 2*S r* / *c*,
-
-so range is a frequency, and a Fourier transform over the samples of one chirp is a range profile. This is the radar counterpart of continuous-wave time-of-flight in optics, where depth is the phase of an amplitude modulation and wraps at half the modulation wavelength. Here depth is a frequency instead, and the unambiguous range is set by the ADC's sampling rate, not by a modulation period. Two targets are separable when their beat tones differ by more than one bin, which gives the range resolution
-
-> Δ*r* = *c* / 2*B*.
-
-My radar's chirp sweeps *B* = 1.716 GHz, so Δ*r* = 8.74 cm, with 256 complex samples covering 22.4 m.
-
-The phase of the beat tone also changes from chirp to chirp as the target moves, by 4π*v T*<sub>c</sub>/λ per chirp interval *T*<sub>c</sub>. A second Fourier transform over 64 chirps gives radial velocity in bins of 5.6 cm/s, up to ±1.79 m/s.
-
-### 3.2 Angle from a virtual array
-
-Angle comes from the phase difference of the same echo at different antennas. With three transmitters fired in turn and four receivers, the radar forms twelve virtual elements: a row of eight at half-wavelength spacing for azimuth, and a row of four offset by half a wavelength in height (Rao, 2018). An array of *N* elements at spacing λ/2 has a main lobe of width about
-
-> Δθ ≈ 2 / *N* radians,
-
-so eight elements give about 0.25 rad, or 14°. At range *d* the beam is *d* tan 14° ≈ *d*/4 wide: 0.9 m at a statue 3.6 m away, 1.4 m at a car 5.6 m away (Figure 3). An object narrower than this is one point to the radar. The vertical baseline is a single half-wavelength step between two rows, which gives one phase difference and no resolution, so elevation is effectively unknown (Figure 4).
-
-### 3.3 Surfaces as mirrors
-
-At a 4 mm wavelength, painted walls, glass, metal and smooth stone are optically smooth. A flat surface returns energy to the radar only from the point where its normal points back at the radar, its *specular point*, and reflects the rest away. Walls also act as mirrors for other objects, so a strong target can appear a second time at a longer range (Section 7). This is the property that most separates radar imaging from camera imaging, and it determines how the calibration of Section 4.2 must be done.
+At 3.6 m that beam is 0.9 m wide. The vertical baseline is one half-wavelength step, so there is no usable elevation. And at a 4 mm wavelength most flat surfaces are mirrors: they return only from the point where they face the radar.
 
 ![Figure 3](figures/stage5_angle_bev_vs_lidar_15-49-40_14356.png)
 
-*Figure 3. **The radar sees a car as an arc.** One radar frame of a parking lot: (a) the radar's range–azimuth top view, where the car 5.6 m away spreads into an arc about 1.4 m wide; (b) the LiDAR scan, where the same car is a line; (c) the camera.*
+*Figure 3. The radar sees a car as an arc. (a) Radar top view: the car 5.6 m away is an arc 1.4 m wide. (b) LiDAR: the same car is a line. (c) Camera.*
 
-![Figure 4](figures/stage7_points_15-49-40_1s.png)
+![Figure 4](figures/stage2_range_walk_15-49-40_14356.png)
 
-*Figure 4. **Radar elevation is not usable.** One second of radar points (a) in 3D, (b) from above, coloured by SNR, (c) from the side. On a flat lot the points spread over ±3 m in height.*
+*Figure 4. One radar range profile while walking. (a) Camera. (b) One chirp in grey, the mean over 64 chirps and 12 channels in black. The car is the peak at 5.6 m, a row of cars is at 13-19 m. Shaded zones are masked.*
 
----
+## 3. Calibration
 
-## 4. Method
+The radar, LiDAR and camera are fixed on one rig. I place a flat board at eight spots and solve radar to LiDAR, then LiDAR to camera.
 
-### 4.1 From raw samples to 3D points
+The board is a mirror to the radar. Figure 5 shows why that matters. The LiDAR sees the whole board and its centre. The radar sees only the specular point, where the board faces it. When the board is turned, the two are far apart. Fitting the radar to the specular point instead of the centre cuts the azimuth error from 2.89° to 0.58°. It also fixes older angle shots that read 6-9° too wide: on those, the error drops from 4.05° to 0.75°.
 
-**Unpacking.** Each radar frame is 786,432 bytes of 16-bit integers, which reshape to 64 chirps × 3 transmitters × 4 receivers × 512 values. The last axis interleaves in-phase and quadrature samples, and unpacking it gives 256 complex samples per chirp. Getting the order wrong mirrors the range axis, which is how I checked it.
+Figure 6 checks LiDAR to camera. The LiDAR's board points land on the board in the image. The corners are off by 6.4 px, against 52 px for the old solve.
 
-**Range and Doppler.** A Hann-windowed FFT over each chirp gives the range profile (Figure 5). Averaging its magnitude over 64 chirps and 12 channels lowers the noise floor by about 15 dB. Below 0.35 m the profile is dominated by leakage from transmitter to receiver, and above 20.5 m by the I/Q mirror of near echoes, so both are masked. A second FFT over the chirps gives Doppler. On a walking rig the static world spreads over velocity, so the detection stage sums power over Doppler.
+Figure 7 checks range. A board at four taped distances reads radar = 0.993 × tape + 0.183 m, within ±1.2 cm.
 
-**TDM correction and angle.** The three transmitters fire 179 µs apart, so a target that moves between them adds a phase that grows with its Doppler. Uncorrected, this appears as a jump of −1.59 rad in the middle of the virtual array during a walk. Correcting each Doppler bin by its expected phase brings the jump to +0.04 rad (Figure 6). An FFT over the eight azimuth elements, zero-padded to 64 bins, gives the angle spectrum.
+![Figure 5](figures/calib_specular_topview.png)
 
-**Detection.** Thresholding the range–azimuth map directly fails: a strong target's angular sidelobes spread across the whole map, and a fixed threshold either keeps the sidelobes or loses weak targets. I use cell-averaging CFAR along range instead (Richards, 2005), with 8 training and 2 guard cells on each side and a false-alarm probability of 10⁻³, which sets the threshold about 9.4 dB above the local noise. This assumes that noise power is exponentially distributed, and I checked it: in target-free bins, after removing the static echo, the 99th percentile of power over its mean is 4.60, against 4.61 for an exponential. Range-only CFAR still keeps every cell of a target's angular lobe, 227 detections per frame on the parking lot. Requiring each detection to be a local maximum in azimuth leaves 12 (Figure 7).
+*Figure 5. A flat board returns from its specular point, not its centre. Top view in the radar frame: board planes from the LiDAR, their centres (orange), their specular points (blue) and the radar readings (×).*
 
-![Figure 5](figures/stage2_range_15-49-40_14356.png)
+![Figure 6](figures/calib_lidar_on_board.png)
 
-*Figure 5. **Averaging over chirps and channels lifts targets out of the noise.** (a) Camera. (b) Range profile: one chirp in grey, the mean over 64 chirps and 12 channels in black, with the car at 5.6 m and a row of cars at 13–19 m. Masked zones are shaded.*
+*Figure 6. LiDAR points on the board, projected into the camera, with the old solve (top) and this one (bottom). White crosses are the board's corners in the image.*
 
-![Figure 6](figures/stage4_virtual_array_tdm_15-49-40_14356.png)
+![Figure 7](notes/fig/m1_range.png)
 
-*Figure 6. **A moving rig breaks the virtual array until each transmitter's delay is corrected.** (a) 3 TX × 4 RX form a 2 × 8 virtual array. (b) Phase across the azimuth row; the kink is the TDM error before correction. (c) The azimuth spectrum after correction.*
+*Figure 7. Range is linear to ±1.2 cm. A board at four taped distances.*
 
-![Figure 7](figures/stage6_cfar_15-49-40_14356.png)
+## 4. 3D reconstruction over a walk
 
-*Figure 7. **CFAR alone detects every sidelobe.** (a) One azimuth's range profile and its CFAR threshold. (b) Range-only detections form arcs; keeping only azimuth peaks leaves 12. (c) Detections per frame drop from 227 to 12.*
+One radar frame has about a dozen points. To build a 3D model I stack frames over a handheld walk. The poses come from LiDAR odometry (KISS-ICP; Vizzo et al., 2023). A static point must have the Doppler that the rig's own motion predicts, so I keep only points that match. The rest are moving people, ghosts and sidelobes. Every kept point sits at the radar's height, since it has no elevation.
 
-### 4.2 Calibration: a flat board is a mirror
+Figure 8 shows this on a parked car. The test removes the cloud inside the orbit: two-bounce ghosts of the car, sidelobes, and the person walking alongside. Figure 9 shows the statue by day and at night. The radar's top view is the same while the camera frame is nearly black.
 
-The radar, LiDAR and camera are rigidly mounted, so three fixed transforms relate them. I estimate radar to LiDAR and LiDAR to camera, and compose the two.
+*Table 1. Radar points stacked over three orbits, against the LiDAR with the same poses.*
 
-**Radar to LiDAR.** I place a 0.925 m square board at eight positions between 1.5 and 3 m and ±41° from the rig. The LiDAR fits the board's plane. The natural assumption is that the radar's strongest return comes from the board's centre, which is where the LiDAR and camera see it. At 4 mm this is wrong: the board is a mirror, and the radar sees it only at its specular point, the foot of the perpendicular from the radar onto the board's plane (Section 3.3). When the board is turned, the specular point moves away from the centre, and a solve that assumes the centre absorbs the difference as an angle error. I therefore fit the radar's measured range and azimuth to the specular point of each LiDAR plane, solving for yaw and the two in-plane translations. Pitch and roll are fixed at zero, since without elevation they cannot be observed (Figure 8).
+| Orbit | Points kept | Within 0.5 m of LiDAR | LiDAR covered |
+|---|---|---|---|
+| Parked car, day | 44 % of 23,999 | 91 % | 69 % |
+| Statue, day | 68 % of 67,106 | 92 % | 71 % |
+| Statue, night | 75 % of 78,868 | 90 % | 72 % |
 
-**LiDAR to camera.** I mark the board's four corners in the camera image and match them to the corners of the LiDAR's board plane, then solve the camera pose by PnP with the rig's fisheye intrinsics. Radar to camera is the composition of the two transforms.
+![Figure 8](figures/accum_jeep.png)
 
-![Figure 8](figures/calib_specular.png)
+*Figure 8. The Doppler test removes the ghosts inside the orbit. A 90 s orbit of a parked car, top view. (a) All radar points. (b) Points kept. (c) LiDAR with the same poses.*
 
-*Figure 8. **A flat board returns from its specular point, not its centre.** (a) Board planes from the LiDAR, with their centres, specular points and the radar's readings. (b) Azimuth residual per placement, aimed at the centre or at the specular point. (c) Mean error falls from 2.9° to 0.6° on the calibration placements and from 4.0° to 0.8° on held-out shots.*
+![Figure 9](figures/day_night_scotty.png)
 
-### 4.3 Accumulating the static world over a walk
+*Figure 9. The radar sees the statue the same way at night. Top: a camera frame by day and at night. Bottom: kept radar points on the LiDAR (grey), with the walked path (blue).*
 
-A single radar frame has about a dozen points. To build a 3D model of a scene, I accumulate frames over a handheld walk, which needs a pose for every frame and a way to reject points that do not belong to the static scene.
+## 5. Dense depth
 
-**Poses.** I run KISS-ICP (Vizzo et al., 2023) on the 128-beam LiDAR scans and interpolate the poses to radar timestamps. Three settings had to change before odometry held on a handheld rig. The LiDAR's beam geometry had a sign error that made odometry diverge within a minute. The built-in constant-velocity deskew doubled the path, because a handheld rig does not move at constant velocity, so I deskew each scan with the IMU gyro instead. And the map range of 50 m let sparse far returns steer the registration, so I use 30 m and 0.3 m voxels.
+The rig stands still 3.3 m from a statue, with a stone wall about 7 m behind it. Radar cells that keep firing over 50 s become seeds: nine pixels with a known depth, all on one image row. I compare five fills, from no image to full use of it: a constant depth, nearest column, a Gaussian blur, joint bilateral (blur weighted by colour), and edge-aware least squares (depth spreads until it hits a colour edge; Levin et al., 2004). The reference is the LiDAR projected into the camera.
 
-**The static-world test.** A static target at azimuth *az*, seen from a sensor moving with velocity **v**, has radial velocity −**v** · **u**(*az*), where **u** is the unit vector towards the target. Every static point therefore lies on one curve in the Doppler–azimuth plane that is fixed by the rig's motion. A point off that curve is a moving object, a multipath ghost or a sidelobe. I keep a detection only when its Doppler lies within a tolerance of the curve predicted from the odometry, transform it to the world frame with its pose, and place it at the radar's height, since its elevation is unknown.
+*Table 2. Mean error (m) against the LiDAR. Best in bold.*
 
-This test also checks the whole system at once. If the Doppler axis, the poses, the calibration yaw and the time alignment between radar and LiDAR are all correct, the radar's own Doppler ridge gives the same speed and heading as the odometry (Section 6.2).
+| Fill | Above ground | Statue | Around statue | Pedestal | Bronze |
+|---|---|---|---|---|---|
+| Constant | 1.29 | 3.44 | **0.55** | 3.47 | 3.36 |
+| Nearest column | 1.62 | **1.51** | 1.18 | **1.80** | **0.59** |
+| Gaussian | 1.41 | 2.05 | 0.99 | 2.17 | 1.69 |
+| Joint bilateral | 1.64 | 3.72 | 1.44 | 4.10 | 2.52 |
+| Least squares | **1.13** | 2.28 | 0.79 | 2.62 | 1.24 |
 
-### 4.4 Camera-guided dense depth
+Figure 1 shows how each fill behaves. Nearest column paints vertical bands. The statue's band lands on the statue by luck, so it scores best there, and it pulls the wall above the statue 3.9 m forward. Gaussian blurs everything into one smooth surface. Joint bilateral looks most like the scene, but the look is texture copied from the photo. The dark bronze matches the dark windows on the wall, so the statue takes the wall's depth. Least squares gives the flattest wall and the best overall error. It cuts the bronze at its outline where it stands out against pale window frames. The pedestal is the same stone as the wall, so it takes the wall's depth.
 
-The last stage turns radar points into a depth for every pixel of one camera frame. It uses a static scene, with the rig on a stand, so that the radar can be averaged over time.
+The statue's outline splits in two. The bronze against pale frames is distinct in colour. The stone against stone is not. I score the share of each outline that a fill puts on the right side.
 
-**Seeds.** With the rig still, a real surface is detected in the same range–azimuth cell frame after frame, while noise and flicker are not. Over 500 frames (50 s) I keep cells detected in at least 30 % of frames with an SNR above 10 dB. A cell is dropped as a sidelobe when another cell in the same range bin is more than 12 dB stronger. For each azimuth only the nearest cell is kept, because the radar sees past objects that the camera cannot see past. The remaining cells are projected into the image with the calibration. Each becomes a *seed*: a pixel with a known depth. A seed has no elevation, so all seeds lie on the image row at the radar's height.
+*Table 3. Share of the statue's outline kept. Two takes of the same scene. A constant depth gets 46-47 %.*
 
-**Fills.** I compare five ways to spread the seeds over the image, ordered by how much they use the image:
-
-| Fill | Uses the image | Rule |
+| Fill | Distinct outline | Similar outline |
 |---|---|---|
-| Constant | no | the median seed depth everywhere |
-| Nearest column | no | each pixel takes the depth of the seed nearest to its column |
-| Gaussian | position only | weighted mean of the seeds by image distance |
-| Joint bilateral | position and colour | weighted mean by image distance and colour similarity |
-| Edge-aware least squares | colour edges | depth spreads along the image and slows at colour edges |
+| Nearest column | 58-59 % | 46-47 % |
+| Gaussian | 66-68 % | 46 % |
+| Joint bilateral | 57-67 % | 44-46 % |
+| Least squares | **77-78 %** | 46 % |
 
-The joint bilateral fill gives each pixel *p* a weighted mean of the seed depths *d*<sub>q</sub>:
+Where the outline shows in colour, least squares keeps the most. Where it does not, every fill does as badly as a constant. At night the image is dark except the windows, so the whole outline is the similar kind. Every fill then keeps 48-52 % and the colour-based fills act like the plain blur (Figure 10, top rows).
 
-> *D*(*p*) = Σ<sub>q</sub> *w*<sub>s</sub>(*p*, *q*) *w*<sub>c</sub>(*p*, *q*) *d*<sub>q</sub> / Σ<sub>q</sub> *w*<sub>s</sub>(*p*, *q*) *w*<sub>c</sub>(*p*, *q*),
+## 6. Several heights, and bronze against stone
 
-where *w*<sub>s</sub> is a Gaussian in image distance and *w*<sub>c</sub> a Gaussian in the Lab colour difference between *p* and the seed's pixel. Because all seeds lie on one row, *w*<sub>s</sub> is anisotropic, with σ<sub>x</sub> = 100 px and σ<sub>y</sub> = 320 px; σ<sub>c</sub> = 0.08 in Lab/100. Dropping *w*<sub>c</sub> gives the Gaussian fill.
+A radar seed sits at the radar's height. So I took seven takes from one spot at night, with the radar crossing the statue between 0.83 and 1.49 m above the ground, and put all the seeds into one image (Figure 10). The stone pedestal ends at 1.05 m, the bronze at 1.75 m.
 
-The edge-aware least-squares fill solves for the depth map *D* that minimises
+Stacking does not help. With all 66 seeds the error above the ground is 1.76-2.35 m, against 1.22-1.30 m for one take. Figure 11 explains why. From every height the radar's peak sits at the bronze's range, even when the radar is level with the stone. At 2.5 m the beam covers the whole statue, so a seed's height is the radar's height, not the height of what reflected.
 
-> Σ<sub>seeds</sub> (*D*<sub>i</sub> − *d*<sub>i</sub>)² + λ Σ<sub>*p*~*q*</sub> *w*<sub>pq</sub> (*D*<sub>p</sub> − *D*<sub>q</sub>)²,  *w*<sub>pq</sub> = exp(−‖*I*<sub>p</sub> − *I*<sub>q</sub>‖² / 2σ²),
+Figure 11 also shows the two materials. The radar sees the bronze. The stone shows only from the two lowest heights, 18 dB below the bronze. The LiDAR is the other way round: it sees the light stone (reflectivity 23) better than the dark bronze (4).
 
-over 4-neighbour pixel pairs, with σ = 0.05 and λ = 1. The two image-guided fills ask different questions. Joint bilateral asks whether a pixel *looks like* a seed. Least squares asks whether a pixel is *connected* to a seed without crossing an edge. With point seeds alone, a 2D smoothness term is degenerate: the solution is flat with a dip at each seed. I therefore anchor the least-squares fill on the whole seed row, filled column by column from the nearest seed. All filter parameters were set by eye on this scene and **not tuned against the LiDAR**.
+![Figure 10](figures/stack_scotty_1119.png)
 
-**Several heights.** For the height stack of Section 6.5, each take's LiDAR (five scans merged) is levelled on its RANSAC ground plane and registered to the first take's with point-to-plane ICP. A seed then goes from its radar to its LiDAR (calibration), to the first take's LiDAR (ICP), and into the first take's camera. Each take's seeds form their own row, so nearest column picks, per pixel, the take whose row is nearest, and least squares is anchored on every take's row. With one take both reduce exactly to the single-height fills. The LiDAR is used for the registration and the score only, never for the depth.
+*Figure 10. Seeds from seven heights do not give the statue its height. Night. Rows: one take and all seven, as depth and as a statue close-up. Seeds are coloured by the radar's height at the statue. Two lit windows with people behind them are blurred.*
 
----
+![Figure 11](figures/materials_scotty_1119.png)
 
-## 5. Implementation
+*Figure 11. The radar sees the bronze from every height; the LiDAR sees the stone. Left: the statue's LiDAR points by part, with each take's radar height (dotted: no seed on the statue). Middle: radar power along the statue's direction, one line per take, with the ranges of the stone and the bronze. Right: LiDAR reflectivity by part.*
 
-**Hardware.** The rig is the WiSE Lab's handheld data-collection platform, of the kind used to collect the GRT dataset (Huang et al., 2025). It carries a TI AWR1843Boost radar with a DCA1000 capture board for raw ADC, a fisheye camera (1920 × 1080, 30 fps), an Ouster OS0-128 LiDAR (10 Hz) and an IMU (100 Hz). The LiDAR serves only as ground truth and for poses. All four streams share one clock. The radar starts about 2.3 s after the camera, so streams are matched by timestamp, never by frame index. Frame intervals are 50.0 ms for the radar (99th percentile 55.9 ms), 100.0 ms for the LiDAR, 33.3 ms for the camera and 10.0 ms for the IMU.
+## 7. Classical against learned
 
-**Data.** I recorded on five days between 10/21 and 11/19 (Table 1); an earlier day without the LiDAR is left out. The indoor session gives range and angle shots at taped distances. The outdoor sessions give a handheld orbit of a parked car, handheld orbits of a statue (the Scotty sculpture on campus) by day and after dark, and static scenes with the rig on a stand. Camera frames with people in them are not shown.
+GRT (Huang et al., 2025) is a model trained on 29 hours of radar from the same kind of rig. It outputs a 3D occupancy grid. I ran the released model unchanged on my traces (Figure 12). The classical chain gives 10-20 sharp points per frame. GRT fills the whole view but smears along range and height.
 
-*Table 1. Captures used in this report.*
+To score both the same way I look from above, on the same frames, against the same LiDAR.
 
-| Date | Traces | Content | Used in |
-|---|---|---|---|
-| 10/21 | 23 | indoor: board at taped distances and angles, calibration placements, a room | §6.1 |
-| 10/29 | 5 | campus, handheld: parking lot with an orbit of a parked car, a statue | §3, §4.1, §6.2, §6.6 |
-| 11/03 | 13 | eight calibration placements; statue orbit, lawn, corridors, a spin | §4.2, §6.1, §6.2, §6.6 |
-| 11/05 | 10 | static scenes on a stand (lab, outdoors, the statue), a campus walk, a night walk | §6.3, §6.4 |
-| 11/19 | 11 | after dark at the statue: seven static takes from one mark at heights from 1.2 to 1.6 m, an orbit of two laps, two campus walks, a lab dry run | §6.2, §6.4, §6.5, §6.6 |
+*Table 4. CFAR and GRT from above. Per frame: median distance from the method to the LiDAR / from the LiDAR to the method. Stacked: as in Table 1.*
 
-**Software.** Everything from the raw ADC to the dense depth is my own Python. The rig's signal-processing library served only as a test oracle: each stage of my chain is compared with it on the same frame. Poses use the KISS-ICP library; Section 6.6 runs the released GRT code and checkpoint unchanged.
-
-![Figure 9](figures/s4_fig4_rig_geometry.png)
-
-*Figure 9. **The rig.** Sensor positions relative to each other, from the calibration of Section 4.2.*
-
----
-
-## 6. Results
-
-### 6.1 Accuracy of range, angle and calibration
-
-**Implementation.** Each stage of the chain agrees with the rig's own library on the same frame to a relative error of 6–8 × 10⁻⁸, that is, to floating-point precision.
-
-**Range.** I placed a board at 3, 6, 9 and 12 ft from the radar. The measured range is linear in the tape distance, radar = 0.993 × tape + 0.183 m, with residuals within ±1.2 cm (Figure 10). This is well under the 8.74 cm bin of Section 3.1, because the peak of a single strong target is refined between bins with a three-point parabola. The constant 0.18 m offset is subtracted everywhere after this.
-
-**Calibration.** Treating the board as a mirror changes the calibration substantially. Aimed at the board's centre, the radar-to-LiDAR solve leaves an azimuth residual of 2.89°, and 3.37° in leave-one-out. Aimed at the specular point, the same eight placements give 0.58° and 0.66°, with a range residual of 1.6 cm (Figure 8). The solve is yaw +92.75° ± 0.71° and a translation of (−0.133, +0.012) m in the plane.
-
-The same model resolved an earlier puzzle. Indoor angle shots from 10/21 had read 6–9° too wide at ±20°, and channel phase errors were too small to explain it. Aimed at each shot's specular point, those shots, which were not used in the calibration, are within 1.5° and 0.75° on average, against 4.05° aimed at the centre. At the statue's range the calibration still holds in the ground plane: the radar's statue cells land within 4 cm of the statue's LiDAR points at 3.1 m (11/05), and its static cells within 6 cm of LiDAR surfaces after dark (11/19).
-
-LiDAR to camera reprojects the board corners to 6.4 px, and 7.9 px when each placement is left out in turn. The solve from before the LiDAR was swapped gave 52 px on the same shots (Figure 11).
-
-![Figure 10](notes/fig/m1_range.png)
-
-*Figure 10. **Range is linear to ±1.2 cm.** A board at four taped distances, one peak per shot; radar = 0.993 × tape + 0.183 m.*
-
-![Figure 11](figures/calib_lidar_on_board.png)
-
-*Figure 11. **The LiDAR-to-camera solve puts the board where the camera sees it.** LiDAR points on the board projected into the camera with the old solve (top) and this one (bottom). White crosses are the board's corners in the image.*
-
-### 6.2 Accumulation over a handheld walk
-
-**Doppler against odometry.** On the statue orbit of 11/03, the speed from the radar's Doppler ridge is within 0.15 m/s of the LiDAR odometry on 90 % of moving frames, and the heading agrees to 8° (Figure 12). Because the radar's Doppler and the LiDAR's poses are independent, this one agreement confirms the Doppler axis, the poses, the calibration yaw and the time alignment together.
-
-**Accumulated points.** Table 2 scores the accumulated radar points against the LiDAR, accumulated with the same poses. On the parked-car orbit, the static-world test keeps 44 % of 23,999 detections, and 91 % of those lie within 0.5 m of a LiDAR surface. What it removes is the cloud inside the orbit: two-bounce ghosts of the car, sidelobes of its strong near echo, and the person walking alongside (Figure 13). The cost is coverage: the share of LiDAR cells near the path that have a radar point falls from 81 % to 69 %. The statue orbit gives the same picture, with 68 % kept and 92 % within 0.5 m. The pass rate follows walking speed. At 0.3 m/s around the statue the whole scene lies within a few Doppler bins of zero and little can fail the test; at 0.55 m/s around the car more does.
-
-*Table 2. Radar points accumulated over three handheld orbits, against the LiDAR built with the same poses.*
-
-| Orbit | Detections kept by the static test | Within 0.5 m of a LiDAR surface | LiDAR covered |
-|---|---|---|---|
-| Parked car, 10/29, 90 s | 44 % of 23,999 | 91 % | 69 % |
-| Statue, 11/03, 135 s | 68 % of 67,106 | 92 % | 71 % |
-| Statue at night, 11/19, 133 s | 75 % of 78,868 | 90 % | 72 % |
-
-The accumulated cloud is accurate but has the radar's limits: the car is still a ring of returns 14° wide around its LiDAR outline, and every point lies in one plane.
-
-**By night.** Nothing in this chain uses the camera: the poses come from the LiDAR and the static test from the radar's own Doppler. To check that, I ran the same chain, with the same settings, on a night orbit of the same statue (11/19, two laps, after dark; Figure 14). The odometry closes the two laps to 0.57 m over a 43 m path and turns 723° against the IMU's 731°. Against the LiDAR the night cloud scores as the day one did: 90 % of the kept points within 0.5 m of a LiDAR surface (92 % by day) and 72 % of the LiDAR cells covered (71 %). The top views show the same pedestal ring and the same curved wall, while the camera frame is nearly black. The one difference is the pass rate of the static test, 75 % against 68 %, and it follows the walking speed again: the night orbit was walked at 0.24 m/s on a 2.2 m radius, against 0.34 m/s on 2.6 m by day, so more of the scene lay within a Doppler bin of zero.
-
-![Figure 12](figures/ego_check_scotty_1103.png)
-
-*Figure 12. **The radar's own Doppler agrees with the LiDAR odometry.** Statue orbit, 11/03. Doppler–azimuth power of two frames, with the static-world curve predicted from the radar alone and from the poses; speed and heading over the orbit from both.*
-
-![Figure 13](figures/accum_jeep.png)
-
-*Figure 13. **The Doppler test removes the ghosts inside the orbit.** A 90 s orbit of a parked car, top view in the world frame: (a) all CFAR points; (b) the points kept by the static-world test; (c) the LiDAR with the same poses, 0.3–2.5 m above the ground.*
-
-![Figure 14](figures/day_night_scotty.png)
-
-*Figure 14. **The radar sees the statue the same way at night.** The statue orbit by day (11/03) and after dark (11/19). Top: a camera frame from each. Bottom: radar points kept by the static test, coloured by SNR, on the LiDAR (grey), with the walked path (blue); 14 m across, centred on the statue.*
-
-### 6.3 Dense depth
-
-**Scene and protocol.** I evaluate dense depth on the statue with the rig on a stand, 3.3 m from the statue and about 7 m from a curved stone wall behind it (11/05, two takes). The reference is the LiDAR projected into the camera, five scans merged, with range measured from the camera centre. Only pixels more than 0.3 m above the ground are scored, because the radar has no returns from the ground and no fill is asked to solve it.
-
-**Why one number is not enough.** The wall covers most of the image. A fill that paints one depth everywhere already scores well on all pixels while getting the statue completely wrong. Conversely, a fill that paints the statue's depth over a wide band scores well on the statue and badly around it. I therefore report the error on all pixels, near depth edges (a 7 × 7 LiDAR window spanning more than 1 m), on the statue, and *around* the statue (the other pixels of its close-up box, mostly the wall), and read the last two together.
-
-**Seeds.** 21 radar cells pass the persistence test and 9 remain as seeds after sidelobe and occlusion removal. Seven are within 0.35 m of the LiDAR at their pixel; the seed on the statue's bronze figure reads 3.22 m, 0.26 m short. Of the other two, one is 1.8 m short and one 2.7 m long.
-
-*Table 3. Mean absolute error (m) of each fill against the LiDAR, 0–20 m, take 1. Best in each column in bold.*
-
-| Fill | All above ground | Near depth edges | Statue | Around the statue | Stone pedestal | Bronze figure |
-|---|---|---|---|---|---|---|
-| Constant | 1.29 | 2.38 | 3.44 | **0.55** | 3.47 | 3.36 |
-| Nearest column | 1.62 | 2.58 | **1.51** | 1.18 | **1.80** | **0.59** |
-| Gaussian | 1.41 | 2.52 | 2.05 | 0.99 | 2.17 | 1.69 |
-| Joint bilateral | 1.64 | 2.64 | 3.72 | 1.44 | 4.10 | 2.52 |
-| Edge-aware least squares | **1.13** | **2.16** | 2.28 | 0.79 | 2.62 | 1.24 |
-
-Figure 1 and Table 3 show four behaviours, one per fill.
-
-**Nearest column** has no image. Each column takes the depth of the nearest seed, so the depth map is a set of vertical bands and the 3D view a set of flat slabs. The band of the statue's seed happens to land on the statue's middle, which gives the lowest statue error (1.51 m): statue pixels inside the band are off by 0.14 m, those outside it by 3.5 m. The same band pulls the wall above the statue 3.9 m forward. The statue is about one radar beam wide, so the band fits it by luck.
-
-**Gaussian** blurs the bands into one smooth surface. Nothing follows the statue's outline, and the statue sits between its own depth and the wall's (2.05 m). The overall error is lower (1.41 m) only because nothing is far off.
-
-**Joint bilateral** gives the depth map that looks most like the scene: windows, statue and pedestal are all visible. That sharpness is texture copied from the photograph, not depth. The statue comes out about as far as the wall (median 7.15 m against 3.34 m in the LiDAR), so this fill has the largest statue error (3.72 m), and in 3D the statue is torn into pieces pasted onto the wall. The cause is the colour term. The bronze figure (lightness 0.21) is as dark as the windows at the wall's seeds (0.17–0.23), and the stone pedestal (0.44) as light as the stone wall (0.43–0.60). The statue's own seed sits on a darker patch (0.10), so the colour term trusts it least of all.
-
-**Edge-aware least squares** spreads depth from the seed row and slows at colour edges. It gives the flattest wall, the lowest overall error (1.13 m) and the lowest error around the statue among the image-guided fills (0.79 m). In the close-up, the bronze figure is cut off at its outline where it stands out against the pale window frames. The pedestal, made of the same stone as the wall, takes the wall's depth, so the statue error stays at 2.28 m.
-
-**The seeds are not the limit.** Keeping only the 6 of 9 seeds within 0.3 m of the LiDAR, which uses the LiDAR and is therefore an upper bound rather than a method, barely changes the statue's numbers: joint bilateral goes from 3.72 to 3.24 m and is still the worst. A second take of the same scene ranks the fills the same way (statue: 1.50, 1.91, 2.78 and 2.05 m for nearest, Gaussian, joint bilateral and least squares).
-
-### 6.4 Distinct and similar outlines
-
-The statue offers a natural experiment. Its upper half is dark bronze against pale window frames, so its outline is visible in colour. Its lower half is a stone pedestal against a stone wall, so its outline is a depth edge with almost no colour edge. Does a fill keep an outline better when the outline is visible?
-
-**Method.** The outline is the boundary of the statue's LiDAR pixels. For each outline pixel I measure a colour contrast, the Lab distance between the mean colour 4 px inside and 4 px outside, and a depth step, the mean LiDAR range outside minus inside. I keep only pixels with a step of more than 1 m, which excludes the base where the pedestal meets the ground. The contrast is clearly bimodal (median 6.8, upper quartile 23.8 Lab units). Outline pixels with a contrast of at least 15 are *distinct* (89 px, the bronze against the window frames); those below 7 are *similar* (134 px, the pedestal against the wall). The thresholds come from the gap in the histogram, not from tuning.
-
-The score is the share of the outline kept: of the pixels within 4 px of an outline class, the share that a fill puts on the correct side, nearer the statue's range (3.7 m) inside and nearer the wall's (6.6 m) outside. A constant depth gets only the outside right, about 46 %. The LiDAR itself, spread to every pixel from its nearest point, gets 88 % and 91 %.
-
-*Table 4. Share of the statue's outline kept, for outlines distinct from the background in colour and similar to it. Two takes of the same scene.*
-
-| Fill | Distinct, take 1 | Distinct, take 2 | Similar, take 1 | Similar, take 2 |
+| Method | Per frame, day | Stacked, day | Per frame, night | Stacked, night |
 |---|---|---|---|---|
-| Constant | 47 % | 47 % | 46 % | 46 % |
-| Nearest column | 59 % | 58 % | 46 % | 47 % |
-| Gaussian | 66 % | 68 % | 46 % | 46 % |
-| Joint bilateral | 67 % | 57 % | 46 % | 44 % |
-| Edge-aware least squares | **77 %** | **78 %** | 46 % | 46 % |
-
-**Where the outline is not visible in colour, no fill keeps it.** On the similar outline every fill scores like a constant depth: all of them give the pedestal's edge the wall's depth.
-
-**Where it is visible, the fill that follows edges keeps the most.** Least squares keeps 77–78 % in both takes. Joint bilateral is no better than the Gaussian fill, which ignores colour altogether (67 against 66 %, and 57 against 68 %). A distinct outline helps a fill that asks whether a pixel is connected to a seed, not one that asks whether it looks like one. With seeds chosen by the LiDAR the numbers barely move (least squares 76 % and 46 %), so the seeds are not the limit here either. The test is small, one object, two takes, 89 and 134 outline pixels, but it separates the two image-guided fills in the same direction on both takes.
-
-**By night.** I repeated the test after dark on the first take of the 11/19 stack (Section 6.5), from a mark 2.5 m from the statue instead of 3.3 m: the same object from a different station. The radar does as well as by day: 8 of 9 seeds are within 0.35 m of the LiDAR, and the statue's seed is within 0.02 m. The guide image is dark except for the windows, and no pixel of the statue's outline reaches a contrast of 15: all 277 outline pixels are similar. As predicted, the fills that use colour fall back to the Gaussian fill (Figure 15, top rows). Every fill keeps 48–52 % of the outline, against 46 % for a constant. Joint bilateral and Gaussian differ by 0.04 m on the statue (2.11 and 2.15 m). Least squares leads the Gaussian fill by 0.07 m above the ground (1.22 against 1.29 m), against 0.28 m by day.
-
-![Figure 15](figures/stack_scotty_1119.png)
-
-*Figure 15. **Seeds from seven heights do not give the statue its height.** Night, one mark. Rows: the first take alone and all seven takes, as depth (near is white) and as the statue close-up. Seeds are coloured by the height of the radar's plane at the statue. The outline is blue where it is similar to the background in colour, which at night is all of it. Two lit windows with people behind them are blurred in the shown frame only.*
-
-### 6.5 Several heights, and bronze against stone
-
-The radar places every seed at its own height, so the seeds of one take lie on one image row. A natural remedy is to take the same scene from several heights and stack them (Section 4.4). I recorded seven takes from one mark after dark, raising or lowering the rig between them. Each take registers to the first with an ICP residual of 1.8–2.6 cm and 86–95 % inliers. The LiDAR stood 1.20–1.62 m above the ground and the rig tilted by 2.5–8°, so the radar's plane crosses the statue between 0.83 and 1.49 m above the ground. The stone pedestal ends at 1.05 m and the bronze figure at 1.75 m.
-
-**Stacking does not help the scene.** With all 66 seeds, the error above the ground is 1.76–2.35 m for the four fills. The first take alone gives 1.22–1.30 m, and the median of the seven takes alone is 1.46–2.52 m, so the comparison does not rest on the first take happening to be the best one. Least squares improves on the statue (1.81 m against 2.44 m, better than 6 of the 7 takes alone), mostly on the pedestal (1.58 against 2.66 m). Flattening all 66 seeds onto one row is worse still, so the extra rows are not what hurts.
-
-**The radar sees the same thing from every height** (Figure 16). Along the statue's azimuth, the power peaks 31–35 dB above the floor at 2.53–2.79 m from the radar, inside the LiDAR's range to the bronze (2.53–2.91 m). This holds even when the radar's plane crosses the stone. At 2.5 m the radar's elevation beam covers the whole statue from every height, so a seed's height is the radar's, not the reflector's. Extra heights add seeds at the wrong height, not new vertical information.
-
-**The radar sees the bronze; the LiDAR sees the stone.** The stone appears only from the two lowest heights, as a 14 dB shoulder at the pedestal's front (2.24–2.27 m), 18 dB below the bronze. From 1.17 m up it stays within 9 dB of the floor. A smooth stone face reflects about 8 dB less than metal at normal incidence, so the material explains only part of the gap; the rest is the pedestal's shape and the beam's elevation pattern, which this data cannot separate. The LiDAR's reflectivity runs the other way, with medians of 23 on the stone and 4 on the dark bronze.
-
-**Two takes miss the statue because of the detector, not the height.** In two takes the statue's power is as high as in the others (31–32 dB), but CFAR drops it. In every take but the first, an object 1.3 m tall stands 3.4 m from the radar and about 20° to its right. Along the statue's azimuth it falls in CFAR's range training cells, 0.6 m beyond the statue, and raises the threshold from 24 dB in the first take to 32–34 dB.
-
-*Table 5. The height stack, per take, sorted by the height of the radar's plane at the statue.*
-
-| LiDAR height | Tilt | Radar's plane at the statue | Seed on the statue | Statue peak | CFAR threshold | Stone front |
-|---|---|---|---|---|---|---|
-| 1.20 m | 4.9° | 0.83 m | yes | 32 dB at 2.79 m | 34 dB | 14 dB |
-| 1.30 m | 5.3° | 0.94 m | yes | 32 dB at 2.70 m | 32 dB | 14 dB |
-| 1.48 m | 3.9° | 1.17 m | yes | 35 dB at 2.61 m | 33 dB | −1 dB |
-| 1.53 m | 2.5° | 1.18 m | **no** | 31 dB at 2.79 m | 34 dB | 6 dB |
-| 1.53 m (first take) | 2.5° | 1.19 m | yes | 33 dB at 2.79 m | 24 dB | 8 dB |
-| 1.62 m | 3.3° | 1.28 m | **no** | 32 dB at 2.70 m | 33 dB | 8 dB |
-| 1.42 m | 8.0° | 1.49 m | yes | 34 dB at 2.53 m | 32 dB | 9 dB |
-
-![Figure 16](figures/materials_scotty_1119.png)
-
-*Figure 16. **The radar sees the bronze from every height; the LiDAR sees the stone.** Left: the statue's LiDAR points by part, with the height of each take's radar plane (dotted: no seed on the statue). Middle: radar power along the statue's azimuth, one line per take, with the LiDAR's range to the stone and the bronze. Right: LiDAR reflectivity by part.*
-
-### 6.6 Comparison with a learned radar model
-
-To place these results, I ran a released checkpoint of GRT (Huang et al., 2025) unchanged on my traces, without training. It takes raw radar frames and outputs a 3D occupancy grid (64 elevation × 128 azimuth × 64 range) in the LiDAR's frame, so it needs no calibration. I first score it the way its paper does, against the LiDAR as first-return depth per column (Table 6).
-
-*Table 6. GRT against the LiDAR as first-return depth.*
-
-| Window | Threshold | Chamfer, model to LiDAR / LiDAR to model | Depth error, median | LiDAR columns covered |
-|---|---|---|---|---|
-| Statue, 10/29 (280 frames) | p > 0.5 | 0.60 / 0.70 m | 2.10 m | 94 % |
-| Statue, 10/29 | p > 0.9 | 0.34 / 0.64 m | 0.70 m | 57 % |
-| Parked car, 10/29 (240 frames) | p > 0.5 | 0.73 / 0.52 m | 1.40 m | 99 % |
-| Statue orbit, 11/03 | p > 0.5 | 0.49 / 0.64 m | 1.40 m | 89 % |
-| Statue orbit, 11/03 | p > 0.9 | 0.35 / 0.67 m | 0.70 m | 57 % |
-| Statue orbit at night, 11/19 | p > 0.5 | 0.61 / 0.76 m | 2.10 m | 91 % |
-| Statue orbit at night, 11/19 | p > 0.9 | 0.35 / 0.67 m | 0.70 m | 55 % |
-
-The two approaches fail in opposite directions (Figure 17). The classical chain gives 10 to 20 sharp points per frame on the strongest reflectors, accurate but sparse. The learned model gives a full occupancy that follows walls and the car's outline coarsely and covers the whole field of view, but it smears along range and elevation, and at p > 0.5 its first return is biased near by 1–3 m. Raising the threshold to 0.9 trades coverage for accuracy. A sweep of a residual yaw finds no consistent offset in the model's output, to a sensitivity of about 3°.
-
-**By night** the model behaves as by day; it reads only the radar. At p > 0.9 the night orbit scores the same as the day one, to the centimetre. At p > 0.5 it is worse by 0.12 m in Chamfer, which follows the scene, not the light: the night orbit passes 0.4 m closer to the statue, and the near bias puts more first returns in front of it.
-
-**Scored the same way.** The depth-map score cannot be applied to CFAR, whose points have no usable elevation. I therefore reduce both methods to what both give, points in the horizontal plane, on the same frames and against the same LiDAR label. I also accumulate GRT's first returns over the orbit with the same poses as the CFAR points, keep those 0.3–2.5 m above the ground, and score them as in Table 2 (Table 7). Per frame, GRT at p > 0.9 is as accurate as CFAR and sees nearly every surface, while CFAR's 15–18 points per frame leave the label 1.5 m from the nearest one. Over the orbit, CFAR is the more precise and GRT the more complete. The top view hides GRT's smear in elevation, which is where most of its 3D error lies.
-
-*Table 7. CFAR and GRT on the same frames, against the same LiDAR, from above. Per frame: median distance from the method's points to the label, and from the label to the method's points. Accumulated: as in Table 2.*
-
-| Method | Day, per frame | Day, accumulated: within 0.5 m / coverage | Night, per frame | Night, accumulated: within 0.5 m / coverage |
-|---|---|---|---|---|
-| CFAR | 0.12 / 1.54 m (15 points) | 92 % / 71 % | 0.13 / 1.49 m (18 points) | 90 % / 72 % |
-| GRT, p > 0.5 | 0.26 / 0.16 m | 80 % / 81 % | 0.32 / 0.24 m | 67 % / 77 % |
+| CFAR | 0.12 / 1.54 m | 92 % / 71 % | 0.13 / 1.49 m | 90 % / 72 % |
 | GRT, p > 0.9 | 0.09 / 0.14 m | 81 % / 82 % | 0.11 / 0.12 m | 71 % / 84 % |
 
-**Heights.** GRT outputs elevation, so the height stack of Section 6.5 tests whether it puts the statue where the statue is or where the radar is (Figure 18). In the six takes tilted by at most 5.3°, the mean height of GRT's occupancy on the statue is 0.84–1.14 m and does not change with the radar's height (slope 0.01 over 0.83–1.28 m). A CFAR seed follows the radar's height exactly. The LiDAR label's mean is 0.65–0.70 m: GRT smears the statue upwards to about 2.3 m, 0.5 m above its top. In the take tilted by 8°, GRT's occupancy moves up with the tilt (mean 1.33 m). The model was trained on a level rig.
+CFAR is more precise; GRT is more complete. Night does not change GRT, since it reads only the radar.
 
-![Figure 17](figures/grt_vs_cfar_scotty_1103.png)
+Figure 13 uses the height stack on GRT. Unlike a CFAR seed, GRT does not put the statue at the radar's height: in the six takes with little tilt, its mean height on the statue stays at 0.84-1.14 m whatever the radar's height. But it smears the statue up to about 2.3 m, 0.5 m above its top.
 
-*Figure 17. **Classical detection is sparse and sharp; the learned model is dense and smeared.** One instant of the statue orbit: the camera; the CFAR points on the LiDAR scan; the learned model's first-return cells on the same scan, with no calibration; the LiDAR label.*
+![Figure 12](figures/grt_vs_cfar_scotty_1103.png)
 
-![Figure 18](figures/grt_heights_scotty_1119.png)
+*Figure 12. Classical points are sparse and sharp; the learned model is dense and smeared. One moment of the statue orbit: camera, CFAR points on the LiDAR, GRT's first occupied cells on the LiDAR, and the LiDAR label.*
 
-*Figure 18. **GRT does not put the statue at the radar's height, but smears it upwards.** Mean occupancy on the statue against height above the ground, one line per take of the height stack, coloured by the height of the radar's plane (dotted). Left: GRT. Right: the LiDAR label in the same cells.*
+![Figure 13](figures/grt_heights_scotty_1119.png)
 
----
+*Figure 13. GRT does not follow the radar's height, but smears the statue upwards. Occupancy on the statue against height, one line per take, coloured by the radar's height (dotted). Left: GRT. Right: LiDAR label.*
 
-## 7. Discussion and limitations
+## 8. Limits
 
-**Elevation is the binding limit.** Every CFAR point in this report is placed at the radar's height. This flattens the accumulated cloud into a plane and puts every dense-depth seed on one image row, which is why the vertical extent of the statue has to come entirely from the image. Moving the radar does not change this. From seven heights at one mark the radar's range profile on the statue is the same, because its elevation beam covers the whole statue from each of them (Section 6.5). The learned model does not tie the statue to the radar's height, but it smears it 0.5 m upwards (Section 6.6). A vertical aperture would change this more than any filter.
+Elevation is the main limit. Every radar point sits at the radar's height. That flattens the 3D cloud and puts every seed on one image row, so the statue's height has to come from the image alone. Moving the radar up and down does not fix it.
 
-**Multipath.** Every range shot shows a second peak at twice the target's range, 12.5 dB below it for the nearest target and 22–24 dB for the rest (Figure 19). In a first dense-depth trial on an outdoor scene with a car, one seed was such an echo, at twice the wall's range. Indoors, CFAR points scatter outside the walls: the median distance to the LiDAR is 65 cm in a corridor, against 7 cm on the statue.
+Walls make a second copy of every target at twice its range (Figure 14). One early seed was such a ghost. Open scenes give the radar little to see: it covers 23 % of the LiDAR on a lawn (Figure 15).
 
-**Open scenes.** With few reflectors the radar covers little: 23 % of the LiDAR on an open lawn (Figure 20). The radar sees what reflects towards it, not what is there.
+The detector can drop real targets. In two of the seven height takes, a strong object 0.6 m behind the statue raised the CFAR threshold and removed the statue's seed.
 
-**The detector.** CA-CFAR's threshold depends on what lies in its training cells. A strong object 0.6 m beyond the statue was enough to remove the statue's seed in two of seven takes (Section 6.5). An ordered-statistic CFAR or a two-dimensional training window would be less sensitive to this.
+Dense depth was tested on one object, with filter settings chosen by eye. The day and night takes are from two spots, 3.3 m and 2.5 m from the statue.
 
-**Calibration** is tested only up to 3 m, and the radar's height is the rig's nominal value of about 0.17 m below the LiDAR, not a measurement. An earlier joint solve gave 0.27 ± 0.15 m, consistent within its error.
+![Figure 14](notes/fig/rd2/f07_ghost.png)
 
-**Dense depth** was evaluated on one object, with filter parameters set by eye. The ground is excluded, not solved. The day and night takes are from two marks, 3.3 and 2.5 m from the statue, so they compare the same object from different stations, not one view under two lights. The image-guided fills assume that colour predicts depth, and Section 6.4 shows how directly their success depends on that assumption holding at the object's outline.
+*Figure 14. Walls make a second copy of every target. Range profiles scaled by the target's distance; the second echo lines up at twice the range.*
 
-**Night** changes only the camera's half. The radar chain is unchanged after dark: the night orbit scores within two points of the day one (Section 6.2), and so does GRT (Section 6.6). The image-guided fills lose the colour edges they rely on and fall back to plain interpolation (Section 6.4).
+![Figure 15](figures/accum_lawn_1103.png)
 
-![Figure 19](notes/fig/rd2/f07_ghost.png)
+*Figure 15. An open lawn gives the radar little to see. It covers 23 % of the LiDAR.*
 
-*Figure 19. **Walls make a second copy of every target.** Range profiles rescaled by the target's distance; the second-bounce echo lines up at twice the range.*
+## 9. Conclusion
 
-![Figure 20](figures/accum_lawn_1103.png)
+On its own the radar is a depth sensor that works in any light: centimetres in range, under a degree in azimuth once the board is treated as a mirror, but a 14° beam and no height. The camera can lend it shape only where colour edges and depth edges line up. Where they do not, the image moves correct radar depth onto the wrong surface. At night the radar works the same and the camera loses its edges. Extra radar heights do not replace them, and a learned model fills gaps at the cost of precision. What would help is elevation: the phase between the array's two rows, tested on this height stack.
 
-*Figure 20. **An open lawn gives the radar little to see.** Few reflectors, and the radar covers 23 % of the LiDAR.*
+## 10. Relation to the proposal
 
----
-
-## 8. Conclusion
-
-I built a 3D camera from a single-chip radar and a fisheye camera, starting from the radar's raw samples. On its own, the radar is a metric, light-independent depth sensor, accurate in range to centimetres and, once its mirror-like targets are modelled, in azimuth to a fraction of a degree, but with a 14° beam and no elevation. The camera can lend it shape only where the scene's colour edges and depth edges coincide: there, an edge-aware fill keeps three quarters of an object's outline, and where they do not, image guidance can move correct radar depth onto the wrong surface. After dark the radar half works unchanged, while the camera half loses its colour edges. Taking the radar to several heights does not replace them, because its beam sees the same object from each, and a learned model trained on LiDAR fills in what CFAR misses at the cost of the precision CFAR has. What would change the picture is elevation: the phase between the array's two rows, tested on the height stack, where the statue's true height and seven radar heights are known.
-
----
-
-## 9. Relation to the proposal
-
-| Proposal item | Where | Outcome |
+| Item | Section | Outcome |
 |---|---|---|
-| 1. Calibration, checked at the statue's range | §4.2, §6.1 | Done. The radar's height is the rig's nominal value, not measured |
-| 2. Dense depth from one height, day and night | §6.3, §6.4 | Done. The night take is from a mark 2.5 m from the statue, the day take from 3.3 m; no reshoot |
-| 3. Several heights, stacked | §6.5 | Done, at night only; no day set was recorded |
-| 4. 3D reconstruction, day and night orbits | §6.2 | Done |
-| 5. CFAR against GRT, scored the same way | §6.6 | Done, day and night, and on the height stack |
-| 6. Bronze against stone | §6.5 | Done inside the height stack, from the same takes, instead of as a separate experiment |
-| Hope: elevation from the two array rows | §8 | Not done; the height stack is its test set |
-| Hope: backprojection across heights | — | Not done. Section 6.5 shows that without elevation, heights add no vertical information |
-| Hope: a smooth metal panel against rough stone | — | No data; the statue's bronze and stone stand in for it |
-
----
+| Calibration | 3 | Done. The radar's height is the rig's nominal value |
+| Dense depth, one height, day and night | 5 | Done. Day and night from two spots; no reshoot |
+| Several heights | 6 | Done, night only |
+| 3D reconstruction, day and night | 4 | Done |
+| CFAR against GRT | 7 | Done, day, night and height stack |
+| Bronze against stone | 6 | Done inside the height stack |
+| Hopes: elevation from the array rows, backprojection, metal panel | 9 | Not done |
 
 ## Acknowledgements
 
-The rig was lent by the CMU WiSE Lab. GRT's authors released the model and checkpoint used in Section 6.6. The comparison of distinct and similar outlines follows a suggestion by the course staff.
+The rig was lent by the CMU WiSE Lab. GRT's authors released the model used in Section 7. The distinct and similar outline test follows a suggestion by the course staff.
 
 ## References
 
-- Guan, J., Madani, S., Jog, S., Gupta, S., Hassanieh, H. Through fog high-resolution imaging using millimeter wave radar. *CVPR*, 2020, pp. 11464–11473.
 - Huang, T., Prabhakara, A., Chen, C., Karhade, J., Ramanan, D., O'Toole, M., Rowe, A. Towards foundational models for single-chip radar. *ICCV*, 2025.
-- Kellner, D., Barjenbruch, M., Klappstein, J., Dickmann, J., Dietmayer, K. Instantaneous ego-motion estimation using Doppler radar. *ITSC*, 2013, pp. 869–874.
 - Kopf, J., Cohen, M. F., Lischinski, D., Uyttendaele, M. Joint bilateral upsampling. *ACM Transactions on Graphics* 26(3), 2007.
-- Levin, A., Lischinski, D., Weiss, Y. Colorization using optimization. *ACM Transactions on Graphics* 23(3), 2004, pp. 689–694.
-- Long, Y., Morris, D., Liu, X., Castro, M., Chakravarty, P., Narayanan, P. Radar–camera pixel depth association for depth completion. *CVPR*, 2021.
-- Prabhakara, A., Jin, T., Das, A., Bhatt, G., Kumari, L., Soltanaghai, E., Bilmes, J., Kumar, S., Rowe, A. High resolution point clouds from mmWave radar. *ICRA*, 2023, pp. 4135–4142.
-- Prabhakara, A., Zhang, D., Li, C., Munir, S., Sankaranarayanan, A. C., Rowe, A., Kumar, S. Exploring mmWave radar and camera fusion for high-resolution and long-range depth imaging. *IROS*, 2022, pp. 3995–4002.
+- Levin, A., Lischinski, D., Weiss, Y. Colorization using optimization. *ACM Transactions on Graphics* 23(3), 2004, pp. 689-694.
 - Rao, S. MIMO radar. Texas Instruments application report SWRA554A, 2018.
-- Richards, M. A. *Fundamentals of Radar Signal Processing*. McGraw-Hill, 2005.
-- Vizzo, I., Guadagnino, T., Mersch, B., Wiesmann, L., Behley, J., Stachniss, C. KISS-ICP: in defense of point-to-point ICP. *IEEE Robotics and Automation Letters* 8(2), 2023, pp. 1029–1036.
+- Vizzo, I., Guadagnino, T., Mersch, B., Wiesmann, L., Behley, J., Stachniss, C. KISS-ICP: in defense of point-to-point ICP. *IEEE Robotics and Automation Letters* 8(2), 2023, pp. 1029-1036.
