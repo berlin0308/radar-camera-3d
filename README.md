@@ -4,6 +4,8 @@ Classical FMCW radar (TI AWR1843 + DCA1000 on the WiSE Lab red-rover rig) plus a
 turned into a 3D camera: raw ADC → range / Doppler / angle → 3D points → camera-guided dense depth,
 evaluated against LiDAR.
 
+**[Final report →](FINAL_REPORT.md)** the write-up: method, results, discussion.
+
 **[Experiment reports →](EXPERIMENTS.md)** every experiment with its numbers, figures and what is still pending.
 
 **[Three Sensors, One Statue →](https://claude.ai/artifact/Cc611gCdM8FRype53aoxeC)** Yining's write-up of the Scotty 11/03 orbit: radar, LiDAR and camera reconstructions in one object frame, with interactive viewers (a Claude artifact, needs the share; the numbers match [experiments/obj-orbit-360](experiments/obj-orbit-360/README.md)).
